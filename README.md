@@ -1,20 +1,20 @@
 # SharedChain
 
-A Paper 26.2 plugin for team-based challenge runs: **all players share one health pool**, are **physically chained together**, and must work as a team to kill the Ender Dragon. If any player dies, the whole team wipes and the run is over.
+SharedChain is a Paper 26.2 plugin for team-based challenge runs. All players share one health pool and are physically chained together. The team wins by killing the Ender Dragon; if any player dies, the whole team wipes and the run ends.
 
 ## Features
 
-- **Shared Health** — one health pool for the entire team. Damage to any player is mirrored to everyone; the team dies together.
-- **Sponsor Regeneration** — vanilla natural regen is disabled. A custom heartbeat picks a single "Sponsor" player whose hunger/saturation pays for team healing (marked with a green ❤), avoiding the multi-player food-drain multiplier bug.
-- **Chained Together** — players are linked in random order by invisible anchor entities and a per-tick physics pass pulls the team back together when anyone strays past the chain's max distance.
-- **Run Lifecycle** — lobby → countdown → run, with a speedrun timer, persistent death/attempt stats, and a configurable world reset on wipe.
-- **World Reset** — the challenge runs in a dedicated fake overworld. On wipe, the plugin can unload, delete (or back up), and regenerate the overworld/nether/end with a fresh seed.
-- **Run Summary** — after a wipe, broadcasts the run's "Support" (most healing) and "Victim" (most damage taken).
+- **Shared Health**: one health pool for the entire team. Damage to any player is mirrored to everyone.
+- **Sponsor Regeneration**: vanilla natural regen is disabled. A heartbeat task picks a single Sponsor player whose hunger and saturation pay for team healing (marked with a green heart), avoiding the multi-player food-drain multiplier bug.
+- **Chained Together**: players are linked in random order by invisible anchor entities. A per-tick physics pass pulls the team back together when anyone strays past the chain's max distance.
+- **Run Lifecycle**: lobby, countdown, run, with a speedrun timer, persistent death and attempt stats, and a configurable world reset on wipe.
+- **World Reset**: the challenge runs in a dedicated fake overworld. On wipe, the plugin can unload, delete (or back up), and regenerate the overworld, nether, and end with a fresh seed.
+- **Run Summary**: after a wipe, broadcasts the run's Support (most healing) and Victim (most damage taken).
 
 ## Requirements
 
-- **Paper 26.2** (or a compatible fork)
-- **Java 25**
+- Paper 26.2 (or a compatible fork)
+- Java 25
 
 ## Commands
 
@@ -33,29 +33,29 @@ All commands are under `/sharedchain` (aliases: `/sc`, `/chain`).
 
 ## Permissions
 
-- `sharedchain.use` — basic status/timer commands (default: everyone)
-- `sharedchain.admin` — start/stop/reset/reload (default: op, grants `use` + `debug`)
-- `sharedchain.debug` — reserved for debug logging (default: op)
+- `sharedchain.use`: basic status and timer commands (default: everyone)
+- `sharedchain.admin`: start, stop, reset, reload (default: op; grants `use` and `debug`)
+- `sharedchain.debug`: reserved for debug logging (default: op)
 
 ## Configuration
 
 Everything lives in `config.yml`, organized by feature area:
 
-- `shared-health` — max health, sync precision, totem/potion behavior
-- `chain` — max distance, pull strength, leash refresh, anchor visuals
-- `world-reset` — reset mode (`NONE`/`INTERNAL`/`FAHARE_COMPAT`), auto-reset on wipe, backups, challenge/holding world names
-- `lobby` — border sizes and countdown length
-- `timer` / `display` / `death-tracking` / `messages` — UI and messaging
+- `shared-health`: max health, sync precision, totem and potion behavior
+- `chain`: max distance, pull strength, leash refresh, anchor visuals
+- `world-reset`: reset mode (`NONE`/`INTERNAL`/`FAHARE_COMPAT`), auto-reset on wipe, backups, challenge and holding world names
+- `lobby`: border sizes and countdown length
+- `timer`, `display`, `death-tracking`, `messages`: UI and messaging
 
 ## World Reset
 
-The challenge runs in a dedicated world (default `ayin_run`) so the primary server world is never touched:
+The challenge runs in a dedicated world (default `ayin_run`), so the primary server world is never touched:
 
-- **INTERNAL** — the plugin unloads, deletes (or backs up with `backup-before-reset: true`), and regenerates the world in-process with a new seed.
-- **FAHARE_COMPAT** — hands the reset to an external Fahare-compatible plugin via `fahare-reset-command`.
-- **NONE** — no automatic reset; the world must be reset manually.
+- **INTERNAL**: the plugin unloads, deletes (or backs up with `backup-before-reset: true`), and regenerates the world in-process with a new seed.
+- **FAHARE_COMPAT**: hands the reset to an external Fahare-compatible plugin via `fahare-reset-command`.
+- **NONE**: no automatic reset; the world must be reset manually.
 
-If you previously ran the challenge in `world`, rename your world folder to the configured `challenge-world-name` (server stopped) or change the config — the primary server world cannot be used for in-process resets.
+If the challenge previously ran in `world`, rename the world folder to the configured `challenge-world-name` (server stopped) or change the config. The primary server world cannot be used for in-process resets.
 
 ## Build
 
