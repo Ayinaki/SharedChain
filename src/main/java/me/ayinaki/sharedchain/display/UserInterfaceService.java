@@ -48,6 +48,10 @@ public class UserInterfaceService {
     private final Set<UUID> lastTabViewers = new HashSet<>();
     private final Set<UUID> scoreboardApplied = new HashSet<>();
 
+    // Action Bar Element (component only rebuilt when the time string changes)
+    private String lastActionBarTime;
+    private Component actionBarComp;
+
     public UserInterfaceService(SharedChain plugin) {
         this.plugin = plugin;
         
@@ -76,12 +80,16 @@ public class UserInterfaceService {
         if (state == RunState.RUNNING || state == RunState.WIPED || state == RunState.FINISHED) {
             String mode = plugin.getConfig().getString("timer.display-mode", "ACTION_BAR");
             String time = plugin.getTimerService().getFormattedTime();
-            Component timerComp = ComponentUtil.parse("<timer>", Placeholder.parsed("timer", time));
+            // updateAll() runs every tick; skip the MiniMessage parse when the time is unchanged
+            if (!time.equals(lastActionBarTime)) {
+                lastActionBarTime = time;
+                actionBarComp = ComponentUtil.parse("<timer>", Placeholder.parsed("timer", time));
+            }
 
             for (UUID uuid : plugin.getRunManager().getParticipants()) {
                 Player player = Bukkit.getPlayer(uuid);
                 if (player != null && player.isOnline() && "ACTION_BAR".equals(mode)) {
-                    player.sendActionBar(timerComp);
+                    player.sendActionBar(actionBarComp);
                 }
             }
         }

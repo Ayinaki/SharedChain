@@ -16,7 +16,6 @@ public class RunFinishDetector implements Listener {
 
     public RunFinishDetector(SharedChain plugin) {
         this.plugin = plugin;
-        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     public void reset() {

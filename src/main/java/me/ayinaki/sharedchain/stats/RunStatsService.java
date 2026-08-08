@@ -1,6 +1,5 @@
 package me.ayinaki.sharedchain.stats;
 
-import me.ayinaki.sharedchain.SharedChain;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
@@ -8,13 +7,8 @@ import java.util.Map;
 import java.util.UUID;
 
 public class RunStatsService {
-    private final SharedChain plugin;
     private final Map<UUID, Double> hpHealed = new HashMap<>();
     private final Map<UUID, Double> damageTaken = new HashMap<>();
-
-    public RunStatsService(SharedChain plugin) {
-        this.plugin = plugin;
-    }
 
     public void reset() {
         hpHealed.clear();
