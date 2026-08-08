@@ -1,28 +1,28 @@
-name: AyinChallenge
+name: SharedChain
 version: '${version}'
-main: me.ayinaki.ayinchallenge.AyinChallenge
+main: me.ayinaki.sharedchain.SharedChain
 api-version: '26.2'
-prefix: AyinChallenge
+prefix: SharedChain
 author: Ayinaki
-description: A shared health and shared food challenge plugin.
+description: A team challenge plugin with shared health and chained players.
 folia-supported: false
 
 commands:
-  ayinchallenge:
-    description: Main command for AyinChallenge.
-    aliases: [ac, ayin]
-    permission: ayinchallenge.use
+  sharedchain:
+    description: Main command for SharedChain.
+    aliases: [sc, chain]
+    permission: sharedchain.use
 
 permissions:
-  ayinchallenge.admin:
-    description: Admin permission for AyinChallenge.
+  sharedchain.admin:
+    description: Admin permission for SharedChain.
     default: op
     children:
-      ayinchallenge.use: true
-      ayinchallenge.debug: true
-  ayinchallenge.use:
-    description: Basic use permission for AyinChallenge.
+      sharedchain.use: true
+      sharedchain.debug: true
+  sharedchain.use:
+    description: Basic use permission for SharedChain.
     default: true
-  ayinchallenge.debug:
-    description: Debug permission for AyinChallenge.
+  sharedchain.debug:
+    description: Debug permission for SharedChain.
     default: op

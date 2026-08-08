@@ -1,4 +1,4 @@
-# AyinChallenge Configuration
+# SharedChain Configuration
 
 run:
   # Additional worlds where the challenge is enabled.
@@ -30,7 +30,7 @@ display:
   # Whether to use Scoreboard for team visuals (Required for Sponsor Icon).
   scoreboard-enabled: true
   # Custom tab header text.
-  tab-header: "<gold><b>AyinChallenge</b></gold>"
+  tab-header: "<gold><b>SharedChain</b></gold>"
 
 death-tracking:
   # Whether to track and show death counts in the tab list.
@@ -91,7 +91,7 @@ chain:
   anchor-prediction-ticks: 0.35
 
 messages:
-  prefix: "<dark_gray>[<gold>AyinChallenge</gold>]</dark_gray> "
+  prefix: "<dark_gray>[<gold>SharedChain</gold>]</dark_gray> "
   run-started: "<green>The challenge has started! Good luck!</green>"
   run-stopped: "<red>The challenge has been stopped.</red>"
   run-finished: "<gold><b>Congratulations!</b> The challenge has been completed in <white><timer></white>!</gold>"
