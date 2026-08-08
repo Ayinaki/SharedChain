@@ -1,0 +1,28 @@
+name: AyinChallenge
+version: '${version}'
+main: me.ayinaki.ayinchallenge.AyinChallenge
+api-version: '26'
+prefix: AyinChallenge
+author: Ayinaki
+description: A shared health and shared food challenge plugin.
+folia-supported: false
+
+commands:
+  ayinchallenge:
+    description: Main command for AyinChallenge.
+    aliases: [ac, ayin]
+    permission: ayinchallenge.use
+
+permissions:
+  ayinchallenge.admin:
+    description: Admin permission for AyinChallenge.
+    default: op
+    children:
+      ayinchallenge.use: true
+      ayinchallenge.debug: true
+  ayinchallenge.use:
+    description: Basic use permission for AyinChallenge.
+    default: true
+  ayinchallenge.debug:
+    description: Debug permission for AyinChallenge.
+    default: op

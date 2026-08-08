@@ -1,0 +1,105 @@
+# AyinChallenge Configuration
+
+run:
+  # Additional worlds where the challenge is enabled.
+  enabled-worlds:
+    - world_nether
+    - world_the_end
+  # Whether players join the challenge automatically when they join an enabled world.
+  auto-join: true
+  # Whether the run state persists across server restarts.
+  persist-state: false
+
+shared-health:
+  # Maximum health for all players.
+  max-health: 20.0
+  # Precision for shared health updates.
+  precision: 0.001
+  # Whether totems save the entire team once.
+  totem-save-all: true
+  # Whether potions of instant health/damage affect the shared pool.
+  instant-potions-shared: true
+
+timer:
+  # Timer display mode: ACTION_BAR (Current recommendation)
+  display-mode: ACTION_BAR
+  # Timer format (e.g., HH:mm:ss.SS)
+  format: "HH:mm:ss.SS"
+
+display:
+  # Whether to use Adventure for tab header/footer.
+  tab-enabled: true
+  # Whether to use Scoreboard for team visuals (Required for Sponsor Icon).
+  scoreboard-enabled: true
+  # Custom tab header text.
+  tab-header: "<gold><b>AyinChallenge</b></gold>"
+
+death-tracking:
+  # Whether to track and show death counts in the tab list.
+  show-death-counts: true
+  # Whether to show a dramatic sound effect on wipe.
+  dramatic-wipe: true
+  # The sound to play on wipe.
+  wipe-sound: "entity.illusioner.prepare_blindness"
+  # Pitch for the wipe sound (1.0 plays the file at original speed)
+  wipe-sound-pitch: 1.0
+
+world-reset:
+  # Reset mode: NONE, INTERNAL, FAHARE_COMPAT
+  mode: INTERNAL
+  # External Fahare reset command used when mode is set to FAHARE_COMPAT
+  fahare-reset-command: "fahare reset"
+  # Whether to automatically reset when all players die (wipe).
+  auto-reset-on-wipe: true
+  # Whether to backup the world before reset (INTERNAL mode).
+  backup-before-reset: false
+  # The name of the challenge world.
+  challenge-world-name: "ayin_run"
+  # The holding world name for players during reset.
+  holding-world-name: "ayin_limbo"
+  # Whether to save the world data when unloading.
+  save-on-unload: false
+
+lobby:
+  # Small lobby border size.
+  lobby-border-size: 10.0
+  # Playable border size after start.
+  active-border-size: 100000.0
+  # Countdown before the run starts (in seconds).
+  countdown-seconds: 5
+
+chain:
+  # Whether the team chain constraint is enabled.
+  enabled: true
+  # Visual scale of chain anchor entities (smaller = less interaction blocking).
+  anchor-scale: 0.1
+  # Offsets for the anchor point on the player.
+  anchor-back-offset: 0.38
+  anchor-side-offset: 0.0
+  anchor-y-offset: 0.7
+  # Maximum allowed distance between linked adjacent players.
+  max-distance: 8.0
+  # Extra tolerance before pull starts.
+  slack-distance: 0.75
+  # Pull strength per tick when players stretch the chain.
+  pull-strength: 0.08
+  # Cap on added pull velocity per tick.
+  max-pull-per-tick: 0.18
+  # Interval (in ticks) to refresh entity leash attachments.
+  leash-refresh-interval: 100
+  # Maximum resulting player velocity vector magnitude after chain pull physics.
+  max-result-velocity: 1.6
+  # Ticks of movement prediction applied when positioning waist anchor entities.
+  anchor-prediction-ticks: 0.35
+
+messages:
+  prefix: "<dark_gray>[<gold>AyinChallenge</gold>]</dark_gray> "
+  run-started: "<green>The challenge has started! Good luck!</green>"
+  run-stopped: "<red>The challenge has been stopped.</red>"
+  run-finished: "<gold><b>Congratulations!</b> The challenge has been completed in <white><timer></white>!</gold>"
+  run-wiped: "<red><b>WIPE!</b> <player> died due to <cause>. Total deaths: <deaths>.</red>"
+  no-permission: "<red>You don't have permission to do that.</red>"
+
+debug:
+  # Whether to enable debug logging in console.
+  logging: false

@@ -1,0 +1,96 @@
+name: ChainedTogether
+version: '2.0.4'
+main: me.wd40.chainTogether
+api-version: '1.21'
+author: wd40
+description: Chain multiple players together in sequence
+
+commands:
+  chain:
+    description: Request to chain with another player
+    usage: /chain <player>
+    permission: chaintogether.chain
+  chainaccept:
+    description: Accept a chain request
+    usage: /chainaccept
+    permission: chaintogether.chain
+  chaindeny:
+    description: Deny a chain request
+    usage: /chaindeny
+    permission: chaintogether.chain
+  unchain:
+    description: Leave your current chain
+    usage: /unchain
+    permission: chaintogether.chain
+  chainlist:
+    description: List all members in your chain
+    usage: /chainlist
+    permission: chaintogether.chain
+  chainkick:
+    description: Kick a member from your chain (leader only)
+    usage: /chainkick <player>
+    permission: chaintogether.chain
+  breakchain:
+    description: Break your entire chain (leader) or force break any chain (admin)
+    usage: /breakchain
+    permission: chaintogether.chain
+  chainadmin:
+    description: Open admin GUI to create chains
+    usage: /chainadmin
+    permission: chaintogether.admin
+  chainconfig:
+    description: Open config GUI to adjust settings
+    usage: /chainconfig
+    permission: chaintogether.admin
+  chainforce:
+    description: Force create a chain without requests
+    usage: /chainforce <leader> <player1> [player2]...
+    permission: chaintogether.admin.force
+  chainbreakall:
+    description: Force break any player's chain
+    usage: /chainbreakall <player>
+    permission: chaintogether.admin.breakall
+  chaintp:
+    description: Teleport to a player's chain
+    usage: /chaintp <player>
+    permission: chaintogether.admin.tp
+  chaininfo:
+    description: View detailed info about a player's chain
+    usage: /chaininfo <player>
+    permission: chaintogether.admin.info
+  chainlistall:
+    description: List all active chains on the server
+    usage: /chainlistall
+    permission: chaintogether.admin.listall
+
+permissions:
+  chaintogether.chain:
+    description: Allows you to use chain commands
+    default: true
+  chaintogether.breakchain.others:
+    description: Allows you to forcefully break any chain
+    default: op
+  chaintogether.admin:
+    description: Access to admin GUI and commands
+    default: op
+    children:
+      chaintogether.admin.force: true
+      chaintogether.admin.breakall: true
+      chaintogether.admin.tp: true
+      chaintogether.admin.info: true
+      chaintogether.admin.listall: true
+  chaintogether.admin.force:
+    description: Force create chains without requests
+    default: op
+  chaintogether.admin.breakall:
+    description: Break any chain on the server
+    default: op
+  chaintogether.admin.tp:
+    description: Teleport to chains
+    default: op
+  chaintogether.admin.info:
+    description: View chain information
+    default: op
+  chaintogether.admin.listall:
+    description: List all active chains
+    default: op

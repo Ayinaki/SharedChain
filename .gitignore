@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+/run/
+out/
+
+# Freebuff workspace data (local tooling, not project files)
+.freebuff/
+desktop-v2.db
+desktop-v2.db-shm
+desktop-v2.db-wal
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS / logs
+*.log
+.DS_Store
+Thumbs.db

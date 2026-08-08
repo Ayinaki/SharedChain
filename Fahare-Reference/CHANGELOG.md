@@ -1,0 +1,99 @@
+# Changelog
+
+## [unreleased] - XXXX-XX-XX
+
+### Added
+
+- `FahareResetEvent` allows developers to perform actions after a reset is finished (@DeltaJordan)
+
+## [1.3.1] - 2026-01-27
+
+### Fixed
+
+- Fixed the reset command registering as `/reset` instead of `/fahare reset`
+
+## [1.3.0] - 2026-01-27
+
+### Added
+
+- Newly generated worlds log their seeds to console
+- All generated worlds now respect the `level-seed` and `difficulty` properties of `server.properties`
+- Hardcore hearts are now displayed when `lives` is set to 1, `auto-reset` is set to true, and `difficulty` is set to hard
+
+### Changed
+
+- Offline players now have their data cleared when joining the server after a reset (@leumasme)
+- More data is cleared on reset
+- Migrated commands to native brigadier for reduced file size
+- Target Minecraft & Java versions bumped; updates prior to 1.21.6 no longer supported
+
+## [1.2.1] - 2024-07-22
+
+### Changed
+
+- Health and hunger are now reset for all online players when starting a new world (#1)
+- The difficulty of the original overworld is now copied onto the newly generated world (#3)
+
+## [1.2.0] - 2024-01-27
+
+### Added
+
+- New config option "lives" which specifies how many deaths each player is allowed
+
+### Changed
+
+- Spectators no longer inherently count as dead players
+
+### Fixed
+
+- Removed a rare freeze on reset by forcefully loading and recreating the fake overworld
+
+## [1.1.1] - 2023-09-17
+
+### Changed
+
+- Player inventories, ender chests, and XP are now cleared on reset
+- The server should no longer attempt multiple resets at the same time
+
+## [1.1.0] - 2023-08-21
+
+### Added
+
+- Configuration file with various settings
+- `/fahare reset` command to manually reset the world (requires `fahare.reset` permission)
+- Optional config setting to disable the automatic reset feature in favor of the reset command
+- Optional config setting to reset the world on *any* player death, not just when all players die
+
+### Changed
+
+- Deleted worlds are now backed up in the `fahare-backups` folder by default (configurable)
+
+## [1.0.1] - 2023-08-07
+
+### Added
+
+- MIT license
+
+### Changed
+
+- Made more log messages translatable
+- De-duplicated error logs
+- Switched log messages to use the world short name instead of the key to match vanilla logs
+
+## [1.0.0] - 2023-08-06
+
+### Added
+
+- Automatic world reset when all online players die
+- Support for Paper 1.19.3+
+- English translation
+
+[unreleased]: https://github.com/qixils/fahare/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/qixils/fahare/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/qixils/fahare/compare/v1.2.1...v1.3.0
+[1.2.1]: https://github.com/qixils/fahare/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/qixils/fahare/compare/v1.1.1...v1.2.0
+[1.1.1]: https://github.com/qixils/fahare/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/qixils/fahare/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/qixils/fahare/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/qixils/fahare/releases/tag/v1.0.0

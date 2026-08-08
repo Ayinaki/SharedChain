@@ -1,0 +1,26 @@
+# chaintogether config
+
+# how far apart players can be before they get pulled (in blocks)
+# default is 15 but u can change it
+max-chain-distance: 15.0
+
+# how strong the pull is when ppl go too far
+# higher = stronger pull, lower = weaker
+# dont make it too high or itll be annoying
+# try 0.2 if u want it softer, 0.4 if u want it stronger
+pull-strength: 0.3
+
+# can players in the same chain hit eachother?
+chained-players-pvp: true
+
+# max number of players that can be in one chain
+# dont make it too big or ur server will lag lol
+chain-limit: 10
+
+# what happens when someone in the chain dies?
+# false = friendly-respawn (default) - they respawn near the group and stay chained
+# true = group-death - entire chain dies together (harsh but fair lol)
+group-death: false
+
+use-particles: false  # false = leads (default), true = particles
+particle-type: CRIT   # Particle type (CRIT, FLAME, HEART, etc.)
