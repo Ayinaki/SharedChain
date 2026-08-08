@@ -3,7 +3,7 @@ plugins {
     id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
-group = "me.ayinaki"
+group = "me.ayinaki.sharedchain"
 version = "1.0.0"
 
 repositories {

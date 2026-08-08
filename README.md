@@ -1,4 +1,4 @@
-# AyinChallenge
+# SharedChain
 
 A Paper 26.2 plugin for team-based challenge runs: **all players share one health pool**, are **physically chained together**, and must work as a team to kill the Ender Dragon. If any player dies, the whole team wipes and the run is over.
 
@@ -18,24 +18,24 @@ A Paper 26.2 plugin for team-based challenge runs: **all players share one healt
 
 ## Commands
 
-All commands are under `/ayinchallenge` (aliases: `/ac`, `/ayin`).
+All commands are under `/sharedchain` (aliases: `/sc`, `/chain`).
 
 | Command | Permission | Description |
 |---|---|---|
-| `/ayinchallenge start` | `ayinchallenge.admin` | Recreate the challenge world and return to the lobby |
-| `/ayinchallenge startconfirm` | `ayinchallenge.admin` | Begin the lobby countdown and start the run |
-| `/ayinchallenge stop` | `ayinchallenge.admin` | Stop the current run |
-| `/ayinchallenge reset` | `ayinchallenge.admin` | Manually trigger a world reset |
-| `/ayinchallenge status` | `ayinchallenge.use` | Show run state, participants, timer, and shared HP |
-| `/ayinchallenge timer` | `ayinchallenge.use` | Show the current run time |
-| `/ayinchallenge stats` | OP | Get/set run counter and per-player death counts |
-| `/ayinchallenge reload` | `ayinchallenge.admin` | Reload `config.yml` |
+| `/sharedchain start` | `sharedchain.admin` | Recreate the challenge world and return to the lobby |
+| `/sharedchain startconfirm` | `sharedchain.admin` | Begin the lobby countdown and start the run |
+| `/sharedchain stop` | `sharedchain.admin` | Stop the current run |
+| `/sharedchain reset` | `sharedchain.admin` | Manually trigger a world reset |
+| `/sharedchain status` | `sharedchain.use` | Show run state, participants, timer, and shared HP |
+| `/sharedchain timer` | `sharedchain.use` | Show the current run time |
+| `/sharedchain stats` | OP | Get/set run counter and per-player death counts |
+| `/sharedchain reload` | `sharedchain.admin` | Reload `config.yml` |
 
 ## Permissions
 
-- `ayinchallenge.use` — basic status/timer commands (default: everyone)
-- `ayinchallenge.admin` — start/stop/reset/reload (default: op, grants `use` + `debug`)
-- `ayinchallenge.debug` — reserved for debug logging (default: op)
+- `sharedchain.use` — basic status/timer commands (default: everyone)
+- `sharedchain.admin` — start/stop/reset/reload (default: op, grants `use` + `debug`)
+- `sharedchain.debug` — reserved for debug logging (default: op)
 
 ## Configuration
 
@@ -63,7 +63,7 @@ If you previously ran the challenge in `world`, rename your world folder to the 
 ./gradlew build
 ```
 
-Produces `build/libs/AyinChallenge-1.0.0.jar`. To launch a local test server:
+Produces `build/libs/SharedChain-1.0.0.jar`. To launch a local test server:
 
 ```bash
 ./gradlew runServer
