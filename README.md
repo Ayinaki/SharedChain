@@ -68,3 +68,16 @@ Produces `build/libs/SharedChain-1.0.0.jar`. To launch a local test server:
 ```bash
 ./gradlew runServer
 ```
+
+## Releases
+
+GitHub Actions handles CI and releases. The `Build` workflow runs `./gradlew build` on every push to master and every pull request.
+
+The `Release` workflow builds and publishes a release whenever a version tag is pushed. To cut a release:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Tags must follow the `v<major>.<minor>.<patch>` form. The workflow strips the `v` prefix, builds with that version (so the jar name and `plugin.yml` version match the tag), and attaches the jar to a GitHub Release with auto-generated notes.

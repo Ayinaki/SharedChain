@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "me.ayinaki.sharedchain"
-version = "1.0.0"
+// Version defaults to gradle.properties; override with -Pversion= (used by the release workflow)
 
 repositories {
     mavenCentral()
