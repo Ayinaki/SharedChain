@@ -6,8 +6,6 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
-import java.util.Map;
-
 public class ComponentUtil {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private final SharedChain plugin;
@@ -28,13 +26,5 @@ public class ComponentUtil {
 
     public static Component parse(String input, TagResolver... resolvers) {
         return MINI_MESSAGE.deserialize(input, resolvers);
-    }
-
-    public static TagResolver createResolvers(Map<String, String> placeholders) {
-        return TagResolver.resolver(
-            placeholders.entrySet().stream()
-                .map(entry -> Placeholder.parsed(entry.getKey(), entry.getValue()))
-                .toArray(TagResolver[]::new)
-        );
     }
 }

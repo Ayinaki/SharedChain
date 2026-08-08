@@ -80,7 +80,7 @@ public final class SharedChain extends JavaPlugin {
         uiService = new UserInterfaceService(this);
         finishDetector = new RunFinishDetector(this);
         resetService = new WorldResetService(this);
-        runStatsService = new RunStatsService(this);
+        runStatsService = new RunStatsService();
         chainService = new ChainService(this);
 
         // Validate and create worlds
@@ -94,6 +94,7 @@ public final class SharedChain extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new SharedHealthListener(this), this);
         Bukkit.getPluginManager().registerEvents(new DeathListener(this), this);
         Bukkit.getPluginManager().registerEvents(new RedirectionListener(this), this);
+        Bukkit.getPluginManager().registerEvents(finishDetector, this);
 
         // Register command
         SharedChainCommand command = new SharedChainCommand(this);
