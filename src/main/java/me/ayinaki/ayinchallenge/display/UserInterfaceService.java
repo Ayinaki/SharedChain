@@ -14,6 +14,8 @@ import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -38,6 +40,13 @@ public class UserInterfaceService {
 
     // BossBar Elements
     private final BossBar attemptsBossBar;
+    private int lastAttempt = -1;
+    private final Set<UUID> lastBossBarViewers = new HashSet<>();
+
+    // Tab List Elements (content only rebuilt when it actually changes)
+    private String lastFooterText;
+    private final Set<UUID> lastTabViewers = new HashSet<>();
+    private final Set<UUID> scoreboardApplied = new HashSet<>();
 
     public UserInterfaceService(AyinChallenge plugin) {
         this.plugin = plugin;
@@ -81,21 +90,39 @@ public class UserInterfaceService {
         if (plugin.getConfig().getBoolean("display.tab-enabled", true)) {
             String time = plugin.getTimerService().getFormattedTime();
             String totalTime = plugin.getTimerService().getFormattedTotalTime();
+            String footerText = "Timer: " + time + " | Total: " + totalTime;
 
-            Component header = ComponentUtil.parse(plugin.getConfig().getString("display.tab-header", "<gold><b>AyinChallenge</b></gold>"));
-            Component footer = Component.text("Timer: ", NamedTextColor.GRAY)
-                    .append(Component.text(time, NamedTextColor.WHITE))
-                    .append(Component.text(" | Total: ", NamedTextColor.GRAY))
-                    .append(Component.text(totalTime, NamedTextColor.GOLD));
+            Set<UUID> viewers = new HashSet<>();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                viewers.add(player.getUniqueId());
+            }
+            // updateAll() runs every tick; only re-send when the content or audience changed
+            boolean contentChanged = !footerText.equals(lastFooterText);
+            boolean audienceChanged = !viewers.equals(lastTabViewers);
+            lastFooterText = footerText;
+            lastTabViewers.clear();
+            lastTabViewers.addAll(viewers);
+
+            boolean scoreboardEnabled = plugin.getConfig().getBoolean("display.scoreboard-enabled", true);
+            boolean scoreboardActive = scoreboardEnabled && state == RunState.RUNNING;
 
             for (Player player : Bukkit.getOnlinePlayers()) {
-                player.sendPlayerListHeaderAndFooter(header, footer);
-                
-                // 3. Scoreboard (Only for participants in running state)
-                if (plugin.getConfig().getBoolean("display.scoreboard-enabled", true)
-                        && state == RunState.RUNNING
-                        && plugin.getRunManager().isParticipant(player)) {
-                    player.setScoreboard(scoreboard);
+                if (contentChanged || audienceChanged) {
+                    Component header = ComponentUtil.parse(plugin.getConfig().getString("display.tab-header", "<gold><b>AyinChallenge</b></gold>"));
+                    Component footer = Component.text("Timer: ", NamedTextColor.GRAY)
+                            .append(Component.text(time, NamedTextColor.WHITE))
+                            .append(Component.text(" | Total: ", NamedTextColor.GRAY))
+                            .append(Component.text(totalTime, NamedTextColor.GOLD));
+                    player.sendPlayerListHeaderAndFooter(header, footer);
+                }
+
+                // 3. Scoreboard (only for participants in running state, applied once per session)
+                if (scoreboardActive && plugin.getRunManager().isParticipant(player)) {
+                    if (scoreboardApplied.add(player.getUniqueId())) {
+                        player.setScoreboard(scoreboard);
+                    }
+                } else {
+                    scoreboardApplied.remove(player.getUniqueId());
                 }
             }
         }
@@ -105,6 +132,19 @@ public class UserInterfaceService {
 
     public void refreshAttemptBossBar() {
         int attempt = Math.max(0, Math.min(99, plugin.getRunManager().getRunCounter()));
+
+        // updateAll() runs every tick; only rebuild the boss bar when the attempt
+        // number or the viewer set has actually changed.
+        Set<UUID> viewers = new HashSet<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            viewers.add(player.getUniqueId());
+        }
+        if (attempt == lastAttempt && viewers.equals(lastBossBarViewers)) return;
+
+        lastAttempt = attempt;
+        lastBossBarViewers.clear();
+        lastBossBarViewers.addAll(viewers);
+
         attemptsBossBar.name(Component.text(buildAttemptTitle(attempt)));
         attemptsBossBar.color(BossBar.Color.YELLOW);
         attemptsBossBar.overlay(BossBar.Overlay.PROGRESS);
@@ -117,6 +157,15 @@ public class UserInterfaceService {
 
     public void updateDeathCount(Player player, int count) {
         deathObjective.getScore(player.getName()).setScore(count);
+    }
+
+    /**
+     * Called when a player disconnects. A reconnecting client starts with a blank
+     * scoreboard, so the player must be re-registered before the scoreboard is
+     * applied again (otherwise they would miss it for the rest of the run).
+     */
+    public void onPlayerQuit(Player player) {
+        scoreboardApplied.remove(player.getUniqueId());
     }
 
     public void setSponsor(Player player) {

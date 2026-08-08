@@ -1,7 +1,7 @@
 name: AyinChallenge
 version: '${version}'
 main: me.ayinaki.ayinchallenge.AyinChallenge
-api-version: '26'
+api-version: '26.2'
 prefix: AyinChallenge
 author: Ayinaki
 description: A shared health and shared food challenge plugin.

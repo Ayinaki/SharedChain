@@ -5,29 +5,17 @@ import me.ayinaki.ayinchallenge.run.RunState;
 import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.TimeZone;
-
 public class SpeedrunTimerService {
     private final AyinChallenge plugin;
     private BukkitTask timerTask;
-    private final SimpleDateFormat dateFormat;
 
     public SpeedrunTimerService(AyinChallenge plugin) {
         this.plugin = plugin;
-        this.dateFormat = new SimpleDateFormat(plugin.getConfig().getString("timer.format", "HH:mm:ss.SS"));
-        this.dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
     public void start() {
         if (timerTask != null) return;
         timerTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 1, 1);
-    }
-
-    public void stop() {
-        // We don't actually stop the task if we want to keep the action bar updated
-        // with the final paused time.
     }
 
     public void shutdown() {

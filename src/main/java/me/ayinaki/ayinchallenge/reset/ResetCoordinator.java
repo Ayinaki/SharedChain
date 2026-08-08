@@ -2,9 +2,6 @@ package me.ayinaki.ayinchallenge.reset;
 
 import me.ayinaki.ayinchallenge.AyinChallenge;
 import me.ayinaki.ayinchallenge.run.RunState;
-import net.kyori.adventure.audience.Audience;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -12,9 +9,9 @@ import org.bukkit.World;
 import org.bukkit.WorldCreator;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -106,14 +103,18 @@ public class ResetCoordinator {
         plugin.getComponentLogger().info("Resetting world: " + name + " (Key: " + key + ")");
 
         // Unload world (must be on main thread)
-        if (plugin.getResetService().getWorldLifecycleService().unloadWorld(world, false)) {
-            // Offload disk deletion to an async thread using CompletableFuture.runAsync()
-            plugin.getResetService().getWorldLifecycleService().deleteWorldFolderAsync(worldPath)
-                .whenCompleteAsync((v, throwable) -> {
+        WorldLifecycleService lifecycle = plugin.getResetService().getWorldLifecycleService();
+        if (lifecycle.unloadWorld(world, false)) {
+            // Offload disk work (backup or deletion) to an async thread
+            boolean backup = plugin.getConfig().getBoolean("world-reset.backup-before-reset", false);
+            CompletableFuture<Void> diskOp = backup
+                    ? lifecycle.backupWorldFolderAsync(worldPath)
+                    : lifecycle.deleteWorldFolderAsync(worldPath);
+            diskOp.whenCompleteAsync((v, throwable) -> {
                     // Resume world recreation on the Paper GlobalRegionScheduler (main thread)
                     Bukkit.getGlobalRegionScheduler().run(plugin, task -> {
                         if (throwable != null) {
-                            plugin.getComponentLogger().error("Error deleting world folder asynchronously: " + name, throwable);
+                            plugin.getComponentLogger().error("Error processing world folder during reset: " + name, throwable);
                             processNextWorld(worlds, seed);
                             return;
                         }

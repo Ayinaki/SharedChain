@@ -3,23 +3,20 @@ package me.ayinaki.ayinchallenge.reset;
 import me.ayinaki.ayinchallenge.AyinChallenge;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
-import org.bukkit.WorldCreator;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Handles the lifecycle of Minecraft worlds: unloading, deleting, and creating.
+ * Handles the lifecycle of Minecraft worlds: unloading, deleting, and backing up.
  */
 public class WorldLifecycleService {
     private final AyinChallenge plugin;
@@ -56,170 +53,59 @@ public class WorldLifecycleService {
         return success;
     }
 
-    public void clearEntities(@NotNull World world) {
-        int count = 0;
-        for (var entity : world.getEntities()) {
-            if (!(entity instanceof Player)) {
-                entity.remove();
-                count++;
-            }
-        }
-        plugin.getComponentLogger().info("Cleared " + count + " non-player entities from world: " + world.getName());
-    }
-
-    public void deleteWorldFolder(@NotNull String worldName) throws IOException {
-        Path worldPath = getWorldPath(worldName);
-        deleteWorldFolder(worldPath);
-    }
-
-    public void deleteWorldFolder(@NotNull Path worldPath) throws IOException {
-        if (Files.exists(worldPath)) {
-            plugin.getComponentLogger().info("Deleting world folder: " + worldPath);
-            deleteDirectory(worldPath);
-
-            // Verification check
-            if (Files.exists(worldPath)) {
-                plugin.getComponentLogger().error("VERIFICATION FAILED: World folder still exists after deletion attempt: " + worldPath);
-                throw new IOException("Failed to delete world folder: " + worldPath);
-            } else {
-                plugin.getComponentLogger().info("Successfully deleted world folder: " + worldPath);
-            }
-        }
-    }
-
     public CompletableFuture<Void> deleteWorldFolderAsync(@NotNull String worldName) {
-        Path worldPath = getWorldPath(worldName);
-        return deleteWorldFolderAsync(worldPath);
+        return deleteWorldFolderAsync(getWorldPath(worldName));
     }
 
     public CompletableFuture<Void> deleteWorldFolderAsync(@NotNull Path worldPath) {
         return CompletableFuture.runAsync(() -> {
-            if (Files.exists(worldPath)) {
-                plugin.getComponentLogger().info("Deleting world folder asynchronously: " + worldPath);
-                try {
-                    deleteDirectory(worldPath);
-                } catch (IOException e) {
-                    throw new RuntimeException("Failed to delete world folder: " + worldPath, e);
-                }
+            if (!Files.exists(worldPath)) return;
+            plugin.getComponentLogger().info("Deleting world folder asynchronously: " + worldPath);
+            try {
+                deleteDirectory(worldPath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to delete world folder: " + worldPath, e);
+            }
 
-                // Verification check
-                if (Files.exists(worldPath)) {
-                    plugin.getComponentLogger().error("VERIFICATION FAILED: World folder still exists after deletion attempt: " + worldPath);
-                    throw new RuntimeException("Failed to delete world folder: " + worldPath);
-                } else {
-                    plugin.getComponentLogger().info("Successfully deleted world folder: " + worldPath);
-                }
+            if (Files.exists(worldPath)) {
+                plugin.getComponentLogger().error("VERIFICATION FAILED: World folder still exists after deletion attempt: " + worldPath);
+                throw new RuntimeException("Failed to delete world folder: " + worldPath);
+            } else {
+                plugin.getComponentLogger().info("Successfully deleted world folder: " + worldPath);
             }
         });
     }
 
-    public void backupWorldFolder(@NotNull String worldName) throws IOException {
-        Path worldPath = getWorldPath(worldName);
-        backupWorldFolder(worldPath);
+    /**
+     * Moves the world folder into the backup directory instead of deleting it.
+     */
+    public CompletableFuture<Void> backupWorldFolderAsync(@NotNull String worldName) {
+        return backupWorldFolderAsync(getWorldPath(worldName));
     }
 
-    public void backupWorldFolder(@NotNull Path worldPath) throws IOException {
-        if (!Files.exists(worldPath)) return;
+    public CompletableFuture<Void> backupWorldFolderAsync(@NotNull Path worldPath) {
+        return CompletableFuture.runAsync(() -> {
+            if (!Files.exists(worldPath)) return;
 
-        Path backupDir = Bukkit.getWorldContainer().toPath().resolve("ayinchallenge-backups");
-        if (!Files.exists(backupDir)) {
-            Files.createDirectories(backupDir);
-        }
-
-        String worldFolderName = worldPath.getFileName() != null ? worldPath.getFileName().toString() : "world";
-        String backupName = worldFolderName + "_" + System.currentTimeMillis();
-        Path targetPath = backupDir.resolve(backupName);
-
-        try {
-            Files.move(worldPath, targetPath);
-        } catch (IOException e) {
-            plugin.getComponentLogger().warn("Failed to backup world folder: " + worldPath + " - " + e.getMessage());
-            // Retry once on Windows without Thread.sleep
+            Path backupDir = Bukkit.getWorldContainer().toPath().resolve("ayinchallenge-backups");
             try {
-                Files.move(worldPath, targetPath);
-            } catch (Exception ignored) {
-                throw e;
+                if (!Files.exists(backupDir)) {
+                    Files.createDirectories(backupDir);
+                }
+
+                String folderName = worldPath.getFileName() != null ? worldPath.getFileName().toString() : "world";
+                Path targetPath = backupDir.resolve(folderName + "_" + System.currentTimeMillis());
+                try {
+                    Files.move(worldPath, targetPath);
+                } catch (IOException e) {
+                    // Retry once: Windows can briefly hold file locks right after a world unload
+                    Files.move(worldPath, targetPath);
+                }
+                plugin.getComponentLogger().info("Backed up world folder " + worldPath + " to " + targetPath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to back up world folder: " + worldPath, e);
             }
-        }
-
-        if (Files.exists(worldPath)) {
-            throw new IOException("Backup move completed but source world folder still exists: " + worldPath);
-        }
-        plugin.getComponentLogger().info("Backed up world folder from " + worldPath + " to " + targetPath);
-    }
-
-    public @Nullable World createNewWorld(@NotNull String worldName, long seed) {
-        WorldCreator creator = new WorldCreator(worldName);
-        creator.seed(seed);
-
-        // Handle dimensions based on name suffix
-        if (worldName.endsWith("_nether")) {
-            creator.environment(World.Environment.NETHER);
-        } else if (worldName.endsWith("_the_end")) {
-            creator.environment(World.Environment.THE_END);
-        }
-
-        World world = creator.createWorld();
-        if (world != null) {
-            if (world.getEnvironment() == World.Environment.NORMAL) {
-                world.setTime(0L);
-                world.setStorm(false);
-                world.setThundering(false);
-                world.setWeatherDuration(0);
-                world.setClearWeatherDuration(Integer.MAX_VALUE);
-            }
-            plugin.getComponentLogger().info("World '" + worldName + "' created/loaded. Actual seed: " + world.getSeed() + " Environment: " + world.getEnvironment());
-        }
-        return world;
-    }
-
-    public void ensureWorldFolderAbsent(@NotNull String worldName) throws IOException {
-        ensureWorldFolderAbsent(getWorldPath(worldName));
-    }
-
-    public void ensureWorldFolderAbsent(@NotNull Path worldPath) throws IOException {
-        if (Files.exists(worldPath)) {
-            plugin.getComponentLogger().warn("World folder still exists before re-create, deleting leftover data: " + worldPath);
-            deleteDirectory(worldPath);
-            if (Files.exists(worldPath)) {
-                throw new IOException("World folder still exists after forced deletion: " + worldPath);
-            }
-        }
-    }
-
-    public void logWorldFolderState(@NotNull String worldName, @NotNull String phase) {
-        Path worldPath = getWorldPath(worldName);
-        logWorldFolderState(worldPath, worldName, phase);
-    }
-
-    public void logWorldFolderState(@NotNull Path worldPath, @NotNull String worldName, @NotNull String phase) {
-        Path levelDat = worldPath.resolve("level.dat");
-        long regionCount = countRegionFiles(worldPath);
-        plugin.getComponentLogger().info(
-                "[" + phase + "] world='" + worldName
-                        + "' path=" + worldPath
-                        + " exists=" + Files.exists(worldPath)
-                        + " level.dat=" + Files.exists(levelDat)
-                        + " regionFiles=" + regionCount
-        );
-    }
-
-    private long countRegionFiles(@NotNull Path worldPath) {
-        Path regionPath = worldPath.resolve("region");
-        if (!Files.exists(regionPath) || !Files.isDirectory(regionPath)) {
-            return 0L;
-        }
-        try (Stream<Path> stream = Files.list(regionPath)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .map(Path::getFileName)
-                    .map(Objects::toString)
-                    .filter(name -> name.endsWith(".mca"))
-                    .count();
-        } catch (IOException e) {
-            plugin.getComponentLogger().warn("Failed to count region files in " + regionPath + ": " + e.getMessage());
-            return -1L;
-        }
+        });
     }
 
     private @NotNull Path getWorldPath(@NotNull String worldName) {
@@ -238,7 +124,7 @@ public class WorldLifecycleService {
                     Files.delete(p);
                 } catch (IOException e) {
                     plugin.getComponentLogger().warn("Failed to delete file: " + p + " - " + e.getMessage());
-                    // Retry on Windows without Thread.sleep
+                    // Retry once on Windows without Thread.sleep
                     try {
                         Files.delete(p);
                     } catch (Exception ignored) {

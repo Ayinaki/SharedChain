@@ -23,8 +23,6 @@ shared-health:
 timer:
   # Timer display mode: ACTION_BAR (Current recommendation)
   display-mode: ACTION_BAR
-  # Timer format (e.g., HH:mm:ss.SS)
-  format: "HH:mm:ss.SS"
 
 display:
   # Whether to use Adventure for tab header/footer.

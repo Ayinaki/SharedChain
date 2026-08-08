@@ -4,6 +4,9 @@ import me.ayinaki.ayinchallenge.chain.ChainService;
 import me.ayinaki.ayinchallenge.command.AyinChallengeCommand;
 import me.ayinaki.ayinchallenge.death.DeathInfo;
 import me.ayinaki.ayinchallenge.death.DeathTrackerService;
+import me.ayinaki.ayinchallenge.listener.RedirectionListener;
+import me.ayinaki.ayinchallenge.run.RunState;
+import me.ayinaki.ayinchallenge.stats.RunStatsService;
 import me.ayinaki.ayinchallenge.display.UserInterfaceService;
 import me.ayinaki.ayinchallenge.finish.RunFinishDetector;
 import me.ayinaki.ayinchallenge.health.SharedHealthService;
@@ -56,7 +59,7 @@ public final class AyinChallenge extends JavaPlugin {
     private UserInterfaceService uiService;
     private RunFinishDetector finishDetector;
     private WorldResetService resetService;
-    private me.ayinaki.ayinchallenge.stats.RunStatsService runStatsService;
+    private RunStatsService runStatsService;
     private LobbyService lobbyService;
     private ComponentUtil componentUtil;
     private ChainService chainService;
@@ -77,7 +80,7 @@ public final class AyinChallenge extends JavaPlugin {
         uiService = new UserInterfaceService(this);
         finishDetector = new RunFinishDetector(this);
         resetService = new WorldResetService(this);
-        runStatsService = new me.ayinaki.ayinchallenge.stats.RunStatsService(this);
+        runStatsService = new RunStatsService(this);
         chainService = new ChainService(this);
 
         // Validate and create worlds
@@ -90,7 +93,7 @@ public final class AyinChallenge extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new RunListener(this), this);
         Bukkit.getPluginManager().registerEvents(new SharedHealthListener(this), this);
         Bukkit.getPluginManager().registerEvents(new DeathListener(this), this);
-        Bukkit.getPluginManager().registerEvents(new me.ayinaki.ayinchallenge.listener.RedirectionListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new RedirectionListener(this), this);
 
         // Register command
         getCommand("ayinchallenge").setExecutor(new AyinChallengeCommand(this));
@@ -138,7 +141,7 @@ public final class AyinChallenge extends JavaPlugin {
         return resetService;
     }
 
-    public me.ayinaki.ayinchallenge.stats.RunStatsService getRunStatsService() {
+    public RunStatsService getRunStatsService() {
         return runStatsService;
     }
 
@@ -234,7 +237,7 @@ public final class AyinChallenge extends JavaPlugin {
     }
 
     public synchronized void handleRunWipe(DeathInfo info) {
-        if (runManager.getState() != me.ayinaki.ayinchallenge.run.RunState.RUNNING) return;
+        if (runManager.getState() != RunState.RUNNING) return;
 
         runManager.wipe(info);
         deathTrackerService.incrementDeaths(info.deadPlayer());

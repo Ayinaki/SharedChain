@@ -19,7 +19,8 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityUnleashEvent;
-import org.bukkit.event.player.*;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 
 public class RunListener implements Listener {
     private final AyinChallenge plugin;
@@ -43,15 +44,19 @@ public class RunListener implements Listener {
         }
 
         if (plugin.getRunManager().isWorldEnabled(player.getWorld())) {
-            if (plugin.getConfig().getBoolean("run.auto-join", true)) {
-                plugin.getRunManager().addParticipant(player);
-                if (plugin.getRunManager().getState() == RunState.WIPED) {
-                    player.setGameMode(GameMode.SPECTATOR);
-                }
-                if (plugin.getRunManager().getState() == RunState.RUNNING) {
-                    plugin.getHealthService().syncHealth();
-                }
-            }
+            autoJoin(player);
+        }
+    }
+
+    private void autoJoin(Player player) {
+        if (!plugin.getConfig().getBoolean("run.auto-join", true)) return;
+        plugin.getRunManager().addParticipant(player);
+        RunState state = plugin.getRunManager().getState();
+        if (state == RunState.WIPED) {
+            player.setGameMode(GameMode.SPECTATOR);
+        }
+        if (state == RunState.RUNNING) {
+            plugin.getHealthService().syncHealth();
         }
     }
 
@@ -127,6 +132,7 @@ public class RunListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         plugin.getRunManager().removeParticipant(event.getPlayer());
+        plugin.getUIService().onPlayerQuit(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -136,15 +142,7 @@ public class RunListener implements Listener {
         if (plugin.getRunManager().isWorldEnabled(player.getWorld())) {
             player.getWorld().setHardcore(true);
             player.getWorld().setGameRule(org.bukkit.GameRules.IMMEDIATE_RESPAWN, true);
-            if (plugin.getConfig().getBoolean("run.auto-join", true)) {
-                plugin.getRunManager().addParticipant(player);
-                if (plugin.getRunManager().getState() == RunState.WIPED) {
-                    player.setGameMode(GameMode.SPECTATOR);
-                }
-                if (plugin.getRunManager().getState() == RunState.RUNNING) {
-                    plugin.getHealthService().syncHealth();
-                }
-            }
+            autoJoin(player);
         } else {
             plugin.getRunManager().removeParticipant(player);
         }

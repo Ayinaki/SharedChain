@@ -72,7 +72,6 @@ public class RunManager {
         }
         state = RunState.IDLE;
         endTime = System.currentTimeMillis();
-        plugin.getTimerService().stop();
         plugin.getHealthService().clearDamageFrames();
         persistRunState();
     }

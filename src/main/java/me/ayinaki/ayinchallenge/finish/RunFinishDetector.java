@@ -51,8 +51,7 @@ public class RunFinishDetector implements Listener {
         var msg = ComponentUtil.parse(messageStr, Placeholder.parsed("timer", time));
         Bukkit.broadcast(msg);
         
-        // We stop the timer logic but the DisplayService will still show the final time.
-        plugin.getTimerService().stop();
-        plugin.getComponentLogger().info("Run officially finished and timer stopped.");
+        // The timer task keeps ticking in FINISHED state so the final time stays on the action bar.
+        plugin.getComponentLogger().info("Run officially finished.");
     }
 }
