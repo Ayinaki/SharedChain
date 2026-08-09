@@ -2,6 +2,7 @@ package me.ayinaki.sharedchain.display;
 
 import me.ayinaki.sharedchain.SharedChain;
 import me.ayinaki.sharedchain.run.RunState;
+import me.ayinaki.sharedchain.tag.TagService;
 import me.ayinaki.sharedchain.util.ComponentUtil;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
@@ -33,11 +34,22 @@ import java.util.UUID;
 public class UserInterfaceService {
     // Attempt Glyphs
     private static final String DIGIT_GLYPHS = "\uE130\uE131\uE132\uE133\uE134\uE135\uE136\uE137\uE138\uE139";
-    private static final String PREFIX_SINGLE = "\uF804\uF804\uF804\uE001\uF808\uF822\uF822";
-    private static final String PREFIX_DOUBLE = "\uF804\uF804\uF802\uE001\uF808\uF822\uF822";
-    private static final String ATTEMPT_LABEL = "\uE141\uE174\uE174\uE165\uE16D\uE170\uE174\uE13A\uE120\uE120";
-    private static final String PAD_SINGLE = "\uE120\uE120\uE120\uE120\uE120\uE120";
-    private static final String PAD_DOUBLE = "\uE120\uE120\uE120";
+    /**
+     * The pill glyph (\uE001, a 113x18 near-black rounded badge) followed by a
+     * pull-back advance that centers the text. The text is Daydream rendered by
+     * the client (a ttf font provider, size 10, shifted 3.5px down so the badge
+     * clears the top of the screen); digit advances are tabular, so each digit
+     * count gets its own pull, computed from the font's advance widths
+     * ("ATTEMPT" = 78.75px, space = 5px, digits = 10.3125px):
+     *  - \uF809 = -108.6875: two digits (78.75 + 5 + 20.625 = 104.375px, pad 4.31)
+     *  - \uF80C = -103.53125: one digit (78.75 + 5 + 10.3125 = 94.0625px, pad 9.47)
+     */
+    private static final String ATTEMPT_PREFIX = "\uE001\uF809";
+    private static final String ATTEMPT_PREFIX_SINGLE = "\uE001\uF80C";
+    /** "ATTEMPT" (no colon) - each character is a private-use glyph in the Daydream font. */
+    private static final String ATTEMPT_LABEL = "\uE141\uE174\uE174\uE165\uE16D\uE170\uE174";
+    /** A 5px space (a space-provider advance) between the label and the number. */
+    private static final String ATTEMPT_SPACE = "\uF825";
 
     private final SharedChain plugin;
 
@@ -45,9 +57,9 @@ public class UserInterfaceService {
     private final Scoreboard scoreboard;
     private final Objective deathObjective;
     private final Team sponsorTeam;
-    private final Team spectatorTeam;
-    /** One team per participant-chosen name color, created lazily (team names stay <= 16 chars). */
-    private final Map<String, Team> colorTeams = new HashMap<>();
+    /** Dynamic teams (participant colors + tag groups + spectators), created lazily. */
+    private final Map<String, Team> teams = new HashMap<>();
+    private final TagService tagService;
     private UUID sponsorUuid;
 
     // BossBar Elements
@@ -66,8 +78,9 @@ public class UserInterfaceService {
     private String lastActionBarTime;
     private Component actionBarComp;
 
-    public UserInterfaceService(SharedChain plugin) {
+    public UserInterfaceService(SharedChain plugin, TagService tagService) {
         this.plugin = plugin;
+        this.tagService = tagService;
 
         // Setup Scoreboard
         this.scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
@@ -85,9 +98,6 @@ public class UserInterfaceService {
         this.sponsorTeam = scoreboard.registerNewTeam("ac1_sponsor");
         this.sponsorTeam.prefix(ComponentUtil.parse("<green>❤ </green>"));
         this.sponsorTeam.color(NamedTextColor.GREEN);
-
-        this.spectatorTeam = scoreboard.registerNewTeam("ac3_spectator");
-        this.spectatorTeam.color(NamedTextColor.GRAY);
 
         // Setup BossBar
         this.attemptsBossBar = BossBar.bossBar(
@@ -176,24 +186,27 @@ public class UserInterfaceService {
         if (logo != null && !logo.isBlank() && plugin.getFontImageService().hasImage(logo)) {
             // The client anchors the tab header to the top of the screen and bitmap
             // glyphs draw upward from the baseline, so a tall logo clips off the top.
-            // Pad with empty lines to push the logo down into view. By default the
-            // padding is computed from the logo's own glyph height so it works no
-            // matter what size the image is; set display.tab-logo-padding to a number
-            // to override.
+            // Pad with blank lines to push the logo down into view: each header line
+            // occupies 9px, and the logo's top edge sits ascent (64) px above its
+            // line's baseline. Each pad line carries a single space so it is a real
+            // (invisible) line regardless of any client-side trimming. By default
+            // the padding is computed from the logo's own glyph height so it works
+            // no matter what size the image is; set display.tab-logo-padding to a
+            // number to override.
             int padding = plugin.getConfig().getInt("display.tab-logo-padding", -1);
             if (padding < 0) {
                 int height = plugin.getFontImageService().getImageHeight(logo);
                 if (height > 0) {
                     // The header starts at y=10, the baseline sits ~8px below the line
                     // top, and the logo's top edge is baseline - height. Solve for the
-                    // empty lines (9px each) so the top edge clears the screen, plus
+                    // blank lines (9px each) so the top edge clears the screen, plus
                     // one line of breathing room.
                     padding = (int) Math.ceil((height - 18) / 9.0) + 1;
                 } else {
                     padding = 0;
                 }
             }
-            StringBuilder header = new StringBuilder("\n".repeat(Math.max(0, padding)));
+            StringBuilder header = new StringBuilder(" \n".repeat(Math.max(0, padding)));
             header.append('%').append(logo).append('%');
             // Optional subtitle under the logo; blank means just the logo.
             if (title != null && !title.isBlank()) {
@@ -265,6 +278,7 @@ public class UserInterfaceService {
         StringBuilder signature = new StringBuilder();
         for (Player player : players) {
             signature.append(player.getName()).append(':');
+            List<TagService.Tag> tags = tagService.tagsFor(player, sponsorUuid);
             if (player.getUniqueId().equals(sponsorUuid)) {
                 signature.append("s;");
             } else if (plugin.getRunManager().isParticipant(player)) {
@@ -273,40 +287,120 @@ public class UserInterfaceService {
             } else {
                 signature.append("o;");
             }
+            // Include the tag set so sponsor flips, record-holder changes and
+            // config reloads re-apply immediately.
+            signature.append(tags).append(';');
         }
         String currentSignature = signature.toString();
         if (currentSignature.equals(lastTeamSignature)) return;
         lastTeamSignature = currentSignature;
 
-        for (Team team : List.of(sponsorTeam, spectatorTeam)) {
-            for (String entry : team.getEntries()) {
-                team.removeEntry(entry);
-            }
-        }
-        for (Team team : colorTeams.values()) {
+        for (Team team : teams.values()) {
             for (String entry : team.getEntries()) {
                 team.removeEntry(entry);
             }
         }
         for (Player player : players) {
+            List<TagService.Tag> tags = tagService.tagsFor(player, sponsorUuid);
             if (player.getUniqueId().equals(sponsorUuid)) {
+                sponsorTeam.prefix(tagPrefix(tags, true));
                 sponsorTeam.addEntry(player.getName());
             } else if (plugin.getRunManager().isParticipant(player)) {
-                teamForColor(getNameColor(player.getUniqueId())).addEntry(player.getName());
+                participantTeam(getNameColor(player.getUniqueId()), tags).addEntry(player.getName());
             } else {
-                spectatorTeam.addEntry(player.getName());
+                spectatorTeam(tags).addEntry(player.getName());
             }
         }
     }
 
-    /** The team for a participant name color, created on first use. */
-    private Team teamForColor(NamedTextColor color) {
-        String key = "ac2" + color.toString().replace("_", "");
-        return colorTeams.computeIfAbsent(key, k -> {
+    /**
+     * The team for a run participant. Tagged players get their own team (keyed by
+     * color + tag codes) so the tag glyphs can ride the team prefix; team names
+     * stay within the 16-char limit via short color codes.
+     */
+    private Team participantTeam(NamedTextColor color, List<TagService.Tag> tags) {
+        String key = tags.isEmpty()
+                ? "ac2" + colorCode(color)
+                : "ac2" + colorCode(color) + "t" + tagCodes(tags);
+        return teams.computeIfAbsent(key, k -> {
             Team team = scoreboard.registerNewTeam(k);
             team.color(color);
+            if (!tags.isEmpty()) {
+                team.prefix(tagPrefix(tags, false));
+            }
             return team;
         });
+    }
+
+    /** The team for a lobby-only spectator (gray), split by tag group. */
+    private Team spectatorTeam(List<TagService.Tag> tags) {
+        String key = tags.isEmpty() ? "ac3" : "ac3t" + tagCodes(tags);
+        return teams.computeIfAbsent(key, k -> {
+            Team team = scoreboard.registerNewTeam(k);
+            team.color(NamedTextColor.GRAY);
+            if (!tags.isEmpty()) {
+                team.prefix(tagPrefix(tags, false));
+            }
+            return team;
+        });
+    }
+
+    /**
+     * The tag glyphs (plus the sponsor heart or a trailing space) shown before a
+     * name. The glyphs are wrapped in an explicit white because the client tints
+     * bitmap glyphs by the current text color and the team prefix would otherwise
+     * inherit the player's name color, recoloring the whole badge.
+     */
+    private Component tagPrefix(List<TagService.Tag> tags, boolean sponsor) {
+        Component prefix = Component.empty();
+        boolean hasSponsorImage = false;
+        for (TagService.Tag tag : tags) {
+            if ("sponsor".equals(tag.slot())) hasSponsorImage = true;
+            prefix = prefix.append(ComponentUtil.parse("<white>%" + tag.image() + "%</white>"));
+        }
+        if (sponsor) {
+            if (hasSponsorImage) {
+                // A sponsor tag image replaces the old text heart.
+                prefix = prefix.append(Component.text(" "));
+            } else {
+                prefix = prefix.append(ComponentUtil.parse("<green>❤ </green>"));
+            }
+        } else if (!tags.isEmpty()) {
+            prefix = prefix.append(Component.text(" "));
+        }
+        return prefix;
+    }
+
+    /** Concatenated single-char tag codes for the team name (e.g. dev+record -> "dr"). */
+    private String tagCodes(List<TagService.Tag> tags) {
+        StringBuilder codes = new StringBuilder();
+        for (TagService.Tag tag : tags) {
+            codes.append(tag.code());
+        }
+        return codes.toString();
+    }
+
+    /** Short stable code per name color, to keep team names under 16 chars. */
+    private static String colorCode(NamedTextColor color) {
+        return switch (color.toString()) {
+            case "black" -> "blk";
+            case "dark_blue" -> "dbl";
+            case "dark_green" -> "dgr";
+            case "dark_aqua" -> "daq";
+            case "dark_red" -> "drd";
+            case "dark_purple" -> "dpr";
+            case "gold" -> "gld";
+            case "gray" -> "gry";
+            case "dark_gray" -> "dgy";
+            case "blue" -> "blu";
+            case "green" -> "grn";
+            case "aqua" -> "aqu";
+            case "red" -> "red";
+            case "light_purple" -> "lpr";
+            case "yellow" -> "yel";
+            case "white" -> "wht";
+            default -> "unk";
+        };
     }
 
     // ------------------------------------------------------------------
@@ -446,13 +540,11 @@ public class UserInterfaceService {
     }
 
     private String buildAttemptTitle(int attempt) {
-        String digits = toGlyphDigits(attempt);
-        boolean singleDigit = attempt < 10;
-
-        return (singleDigit ? PREFIX_SINGLE : PREFIX_DOUBLE)
-                + ATTEMPT_LABEL
-                + (singleDigit ? PAD_SINGLE : PAD_DOUBLE)
-                + digits;
+        // The pull-back (chosen per digit count) centers the whole run in the pill;
+        // the digits follow the label after a 5px space char (\uF825).
+        StringBuilder sb = new StringBuilder(attempt < 10 ? ATTEMPT_PREFIX_SINGLE : ATTEMPT_PREFIX);
+        sb.append(ATTEMPT_LABEL).append(ATTEMPT_SPACE).append(toGlyphDigits(attempt));
+        return sb.toString();
     }
 
     private String toGlyphDigits(int number) {

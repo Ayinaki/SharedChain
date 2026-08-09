@@ -56,7 +56,7 @@ Everything lives in `config.yml`, organized by feature area:
 SharedChain can render custom images in chat and plugin messages (tab header/footer, action bar, broadcasts) using `%name%` placeholders, ItemsAdder-style.
 
 1. Create an image and save it as `plugins/SharedChain/font-images/<name>.png` (lowercase letters, numbers, `_` and `-` only).
-2. The image **width and height must be multiples of 8** (e.g. 64x16, 128x16) and no larger than 256x256. The width is sliced into 8px-wide glyphs, so a 64px-wide image becomes 8 characters wide.
+2. Any dimensions up to 256x256 work (no multiple-of-8 requirement) — the client renders the image 1:1 at its native size, so draw pixel art at the size you want it to appear (e.g. a 22x9 badge renders 22x9). The width is sliced into ~8px-wide glyph cells internally.
 3. Reload with `/sharedchain fonts reload` (or restart the server). The plugin generates a resource pack, serves it from a built-in HTTP server (default port 8123), and pushes it to every player on join - accept the pack prompt in-game.
 4. Type `%name%` in chat, or put it in any config message / tab header, and the image renders.
 
@@ -83,13 +83,30 @@ Glyphs are merged into the default font (the vanilla font's own providers are pr
 
 The generated pack also bundles the **attempt counter** visuals (the run-number boss bar with the pill background and transparent bar), which previously required a separate custom resource pack. The plugin's boss bar already emits those glyphs, so with the pack applied everyone sees the counter. See `font-images.attempt-counter.enabled` and `.hide-bar` in `config.yml`.
 
+## Role Tags
+
+Show a badge next to a player's name in the tab list and above their head. Drop a PNG into `font-images/` and reference it in the `tags:` config section:
+
+```yaml
+tags:
+  dev:
+    image: dev
+    player: Ayinaki   # shown on this player only (name or UUID)
+  sponsor:
+    image: ""         # shown on the current healing sponsor during a run
+  record-holder:
+    image: ""         # shown on the record holder, set via /sharedchain record
+```
+
+Draw badges at native pixel size (any dimensions up to 256x256) — the client renders them 1:1. The sponsor tag follows the live sponsor automatically; the record-holder tag is set with `/sharedchain record <player>` (admin), and the future leaderboard will drive it too.
+
 ## Tab List
 
 Players can change their own tab-list/name-tag color with `/sharedchain color <color>` (admin: `/sharedchain color <player> <color>`). Colors persist in `stats.yml`. The current sponsor is always shown first in green with a heart icon.
 
-The tab list header shows the logo image centered at the top (set via `display.tab-logo`, the name of a font image, e.g. `title`) with the `display.tab-header` title underneath. `display.tab-logo-padding` controls how many empty lines sit above the logo - the client anchors the header to the top of the screen, so tall images clip unless pushed down. It defaults to `-1`, which computes the padding automatically from the logo's height, so you can change the image size freely. The footer shows the run number and status, the current and total run timers, and the current run's top healer/sponge. Player names are colored by team - the current sponsor (green, with a heart icon), run participants (gold), and lobby-only players (gray). The whole tab list updates live in the lobby too, not just during a run.
+The tab list header shows the logo image centered at the top (set via `display.tab-logo`, the name of a font image, e.g. `title`) with the `display.tab-header` title underneath. `display.tab-logo-padding` controls how many blank lines sit above the logo (each pad line carries an invisible space) - the client anchors the header to the top of the screen, so tall images clip unless pushed down. It defaults to `-1`, which computes the padding automatically from the logo's height, so you can change the image size freely. The footer shows the run number and status, the current and total run timers, and the current run's top healer/sponge. Player names are colored by team - the current sponsor (green, with a heart icon), run participants (gold), and lobby-only players (gray). The whole tab list updates live in the lobby too, not just during a run.
 
-Each player's death count renders under their nametag (the scoreboard's below-name slot) as `Deaths <icon>: <count>`. The icon is the font image set by `death-tracking.death-icon` (default `deaths`), so dropping `deaths.png` into `plugins/SharedChain/font-images/` and running `/sharedchain fonts reload` adds it; without a loaded icon the counter shows as plain `Deaths: <count>`. Set `death-tracking.show-death-counts` to `false` to hide the counter.
+Each player's death count renders under their nametag (the scoreboard's below-name slot) as `Deaths <icon>: <count>`. The icon is the font image set by `death-tracking.death-icon` (default `deaths`), so dropping `deaths.png` into `plugins/SharedChain/font-images/` and running `/sharedchain fonts reload` adds it; without a loaded icon the counter shows as plain `Deaths: <count>`. Set `death-tracking.show-death-counts` to `false` to hide the counter. The icon renders at its native pixel height by default — for a small inline icon (the counter line is only ~8px tall), add a `render-height` override in `font-images.yml`, e.g. `deaths: { render-height: 8 }` (on-screen width follows the source's aspect ratio).
 
 ## World Reset
 
