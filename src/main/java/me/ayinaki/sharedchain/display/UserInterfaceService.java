@@ -79,12 +79,14 @@ public class UserInterfaceService {
 
         // Team names are number-prefixed so the tab list sorts them in the right
         // order: the current sponsor first, then run participants (grouped by their
-        // chosen name color), then lobby-only spectators.
-        this.sponsorTeam = scoreboard.registerNewTeam("ac_1_sponsor");
+        // chosen name color), then lobby-only spectators. The tab list sorts teams
+        // by character value (digits before letters), so all prefixes use digits
+        // (ac1_ < ac2... < ac3_) - an underscore prefix would sort after the digits.
+        this.sponsorTeam = scoreboard.registerNewTeam("ac1_sponsor");
         this.sponsorTeam.prefix(ComponentUtil.parse("<green>❤ </green>"));
         this.sponsorTeam.color(NamedTextColor.GREEN);
 
-        this.spectatorTeam = scoreboard.registerNewTeam("ac_3_spectator");
+        this.spectatorTeam = scoreboard.registerNewTeam("ac3_spectator");
         this.spectatorTeam.color(NamedTextColor.GRAY);
 
         // Setup BossBar
