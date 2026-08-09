@@ -14,6 +14,10 @@ repositories {
 dependencies {
     // Paper 26.2 (bump the build number as Paper publishes newer stable builds)
     compileOnly("io.papermc.paper:paper-api:26.2.build.111-stable")
+
+    testImplementation("io.papermc.paper:paper-api:26.2.build.111-stable")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 java {
@@ -27,6 +31,10 @@ tasks {
         options.encoding = "UTF-8"
         options.release.set(25)
         options.compilerArgs.add("-Xlint:deprecation")
+    }
+
+    test {
+        useJUnitPlatform()
     }
 
     runServer {
