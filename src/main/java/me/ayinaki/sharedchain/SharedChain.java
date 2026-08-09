@@ -17,6 +17,7 @@ import me.ayinaki.sharedchain.listener.SharedHealthListener;
 import me.ayinaki.sharedchain.lobby.LobbyService;
 import me.ayinaki.sharedchain.reset.WorldResetService;
 import me.ayinaki.sharedchain.run.RunManager;
+import me.ayinaki.sharedchain.tag.TagService;
 import me.ayinaki.sharedchain.timer.SpeedrunTimerService;
 import me.ayinaki.sharedchain.util.ComponentUtil;
 import net.kyori.adventure.text.Component;
@@ -65,6 +66,7 @@ public final class SharedChain extends JavaPlugin {
     private ComponentUtil componentUtil;
     private ChainService chainService;
     private FontImageService fontImageService;
+    private TagService tagService;
     private File statsFile;
     private YamlConfiguration statsConfig;
 
@@ -79,7 +81,8 @@ public final class SharedChain extends JavaPlugin {
         healthService = new SharedHealthService(this);
         timerService = new SpeedrunTimerService(this);
         deathTrackerService = new DeathTrackerService(this);
-        uiService = new UserInterfaceService(this);
+        tagService = new TagService(this);
+        uiService = new UserInterfaceService(this, tagService);
         finishDetector = new RunFinishDetector(this);
         resetService = new WorldResetService(this);
         runStatsService = new RunStatsService();
@@ -236,6 +239,10 @@ public final class SharedChain extends JavaPlugin {
 
     public FontImageService getFontImageService() {
         return fontImageService;
+    }
+
+    public TagService getTagService() {
+        return tagService;
     }
 
     public YamlConfiguration getStatsConfig() {

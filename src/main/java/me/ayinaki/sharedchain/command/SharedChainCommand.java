@@ -52,6 +52,7 @@ public class SharedChainCommand implements CommandExecutor, TabCompleter {
             case "stats" -> handleStatsCommand(sender, args);
             case "fonts" -> handleFontsCommand(sender, args);
             case "color" -> handleColorCommand(sender, args);
+            case "record", "wr" -> handleRecordCommand(sender, args);
             default -> sender.sendMessage(ComponentUtil.parse("<red>Unknown subcommand '<yellow>" + args[0] + "</yellow>'. Run <yellow>/sharedchain</yellow> for help.</red>"));
         }
 
@@ -68,6 +69,7 @@ public class SharedChainCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ComponentUtil.parse("  <aqua>/sharedchain color <color> [player]</aqua> <gray>— set your name color</gray>"));
         sender.sendMessage(ComponentUtil.parse("  <aqua>/sharedchain stats</aqua> <gray>— view/edit run counter & death counts</gray>"));
         sender.sendMessage(ComponentUtil.parse("  <aqua>/sharedchain fonts</aqua> <gray>— font images & resource pack</gray>"));
+        sender.sendMessage(ComponentUtil.parse("  <aqua>/sharedchain wr <player></aqua> <gray>— toggle the world-record tag (admin, alias: record)</gray>"));
         sender.sendMessage(ComponentUtil.parse("  <aqua>/sharedchain reload</aqua> <gray>— reload the config</gray>"));
     }
 
@@ -145,7 +147,7 @@ public class SharedChainCommand implements CommandExecutor, TabCompleter {
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
-            List<String> subcommands = new ArrayList<>(List.of("start", "stop", "reset", "status", "timer", "reload", "help", "stats", "fonts", "color"));
+            List<String> subcommands = new ArrayList<>(List.of("start", "stop", "reset", "status", "timer", "reload", "help", "stats", "fonts", "color", "record", "wr"));
             return subcommands.stream().filter(s -> s.startsWith(args[0].toLowerCase())).toList();
         }
         if (args.length == 2 && "color".equalsIgnoreCase(args[0])) {
@@ -162,6 +164,11 @@ public class SharedChainCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 3 && "fonts".equalsIgnoreCase(args[0]) && "test".equalsIgnoreCase(args[1])) {
             return plugin.getFontImageService().getImageNames();
+        }
+        if (args.length == 2 && ("record".equalsIgnoreCase(args[0]) || "wr".equalsIgnoreCase(args[0]))) {
+            List<String> options = new ArrayList<>(plugin.getServer().getOnlinePlayers().stream().map(Player::getName).toList());
+            options.add("clear");
+            return options.stream().filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase())).toList();
         }
         if (args.length == 3 && "stats".equalsIgnoreCase(args[0])) {
             if ("runs".equalsIgnoreCase(args[1])) {
@@ -347,6 +354,32 @@ public class SharedChainCommand implements CommandExecutor, TabCompleter {
             return;
         }
         sender.sendMessage(ComponentUtil.parse("<red>Usage:</red> <white>/sharedchain color <color> [player]</white>"));
+    }
+
+    private void handleRecordCommand(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("sharedchain.admin")) {
+            sender.sendMessage(ComponentUtil.parse(plugin.getConfig().getString("messages.no-permission", "<red>You don't have permission to do that.</red>")));
+            return;
+        }
+        if (args.length < 2 || "clear".equalsIgnoreCase(args[1])) {
+            plugin.getTagService().setRecordHolder(null);
+            sender.sendMessage(ComponentUtil.parse("<green>World-record tag cleared.</green>"));
+            return;
+        }
+        Player target = plugin.getServer().getPlayerExact(args[1]);
+        if (target == null) {
+            sender.sendMessage(ComponentUtil.parse("<red>Player '<yellow>" + args[1] + "</yellow>' is not online.</red>"));
+            return;
+        }
+        // Toggle: running the command on the current holder takes the tag off,
+        // so testing is just "run it again".
+        if (target.getUniqueId().equals(plugin.getTagService().getRecordHolder())) {
+            plugin.getTagService().setRecordHolder(null);
+            sender.sendMessage(ComponentUtil.parse("<yellow>Removed the world-record tag from </yellow><white>" + target.getName() + "</white><yellow>.</yellow>"));
+            return;
+        }
+        plugin.getTagService().setRecordHolder(target.getUniqueId());
+        sender.sendMessage(ComponentUtil.parse("<green>Gave the world-record tag to </green><yellow>" + target.getName() + "</yellow><green>.</green>"));
     }
 
     private void handleFontsCommand(CommandSender sender, String[] args) {

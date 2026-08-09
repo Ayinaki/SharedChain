@@ -34,9 +34,10 @@ display:
   # Logo image (a font-images name, e.g. title) shown centered at the top of
   # the tab list. Leave empty to show only the tab-header text.
   tab-logo: title
-  # Empty lines above the logo: the client anchors the header to the top of the
+  # Blank lines above the logo: the client anchors the header to the top of the
   # screen and tall images draw upward, so they clip. -1 (default) computes the
-  # padding automatically from the logo's height; set a number to override.
+  # padding automatically from the logo's height; set a number to override
+  # (each pad line holds a single invisible space).
   tab-logo-padding: -1
   # Optional subtitle shown under the logo. Leave empty to show just the logo.
   tab-header: ""
@@ -112,7 +113,7 @@ messages:
 
 font-images:
   # Render images in chat and plugin messages with %imagename% placeholders.
-  # Drop PNGs (width and height must be multiples of 8, max 256x256) into:
+  # Drop PNGs (any dimensions up to 256x256; rendered 1:1 at native size) into:
   #   plugins/SharedChain/font-images/
   # Optional per-image overrides go in plugins/SharedChain/font-images.yml:
   #   mylogo:
@@ -146,6 +147,27 @@ font-images:
     # Override the URL clients use to download the pack. Defaults to
     # http://localhost:<port>/pack.zip - change this if clients connect over LAN.
     url: ""
+
+tags:
+  # Role tags shown next to a player's name in the tab list and above their head
+  # (via the scoreboard team prefix). Drop a PNG into
+  # plugins/SharedChain/font-images/ (e.g. dev.png) and reference it by name here.
+  # Draw badges at native pixel size - any dimensions up to 256x256 work, and the
+  # client renders them 1:1. Leave an image empty to disable that tag.
+  dev:
+    # Shown on this player only (accepts a name or a UUID).
+    image: dev
+    player: ""
+  # Shown on whoever is currently the healing sponsor during a run. Replaces
+  # the old green text heart when set.
+  sponsor:
+    image: ""
+  # Shown on the current record holder (fastest run time). Toggle per player
+  # with /sharedchain wr <player> (run it again to remove). Image names are
+  # lowercase, so WR.png is referenced as "wr". The future leaderboard will
+  # set this automatically.
+  record-holder:
+    image: ""
 
 debug:
   # Whether to enable debug logging in console.

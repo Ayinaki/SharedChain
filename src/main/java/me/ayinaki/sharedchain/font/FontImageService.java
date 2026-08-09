@@ -278,16 +278,15 @@ public final class FontImageService implements Listener {
 
             int width = image.getWidth();
             int height = image.getHeight();
-            if (width % 8 != 0 || height % 8 != 0) {
-                plugin.getComponentLogger().warn("Font image: skipping '" + file.getName()
-                        + "' (" + width + "x" + height + ") - dimensions must be multiples of 8.");
-                continue;
-            }
             if (width > 256 || height > 256) {
                 plugin.getComponentLogger().warn("Font image: skipping '" + file.getName()
                         + "' (" + width + "x" + height + ") - max size is 256x256.");
                 continue;
             }
+            // Any width/height works: the client slices the image into one cell per
+            // declared character (cell width = image width / char count), so
+            // non-multiples of 8 render 1:1 at the source's aspect ratio - great for
+            // native-size pixel art like 22x9 badges. No multiple-of-8 requirement.
 
             // Optional per-image resize from font-images.yml (width/height overrides,
             // e.g. to shrink a large logo before it is sliced into glyphs).
@@ -312,14 +311,23 @@ public final class FontImageService implements Listener {
             // compact size without looking pixelated.
             int renderHeight = overrides.getInt(name + ".render-height", -1);
             if (renderHeight > 0 && renderHeight < height) {
-                renderHeight = Math.max(8, renderHeight);
+                renderHeight = Math.max(1, renderHeight);
                 plugin.getComponentLogger().info("Font image: '" + name + "' renders at " + renderHeight
                         + "px tall (source " + height + "px, downscaled by the client).");
             } else {
                 renderHeight = height;
             }
 
-            int charsNeeded = width / 8;
+            // Roughly one character per 8px of width, but stepped down to a count
+            // that divides the width evenly: the client slices the image into cells
+            // with INTEGER cell widths (image width / char count), so a width that
+            // isn't divisible by the char count silently drops its rightmost pixels
+            // (e.g. a 25px image across 3 cells renders only 24px). Falling back to
+            // a single full-width cell guarantees nothing is ever cut off.
+            int charsNeeded = Math.max(1, width / 8);
+            while (charsNeeded > 1 && width % charsNeeded != 0) {
+                charsNeeded--;
+            }
             if (nextChar + charsNeeded - 1 > MAX_CHAR) {
                 plugin.getComponentLogger().warn("Font image: skipping '" + file.getName()
                         + "' - no private-use characters left (raise base-char or remove images).");
@@ -439,6 +447,8 @@ public final class FontImageService implements Listener {
             if (attemptCounterEnabled()) {
                 putBundled(zip, "assets/sharedchain/textures/font/bossbar/ascii.png", "font/bossbar/ascii.png");
                 putBundled(zip, "assets/sharedchain/textures/font/bossbar/test2.png", "font/bossbar/test2.png");
+                // The Daydream font the boss bar text renders with (see buildDaydreamTtfProvider).
+                putBundled(zip, "assets/sharedchain/font/daydream.ttf", "font/daydream.ttf");
                 if (plugin.getConfig().getBoolean("font-images.attempt-counter.hide-bar", true)) {
                     putBundled(zip, "assets/minecraft/textures/gui/sprites/boss_bar/yellow_background.png",
                             "gui/boss_bar/yellow_background.png");
@@ -512,6 +522,7 @@ public final class FontImageService implements Listener {
                     + "    }");
         }
         if (attemptCounterEnabled()) {
+            providers.add(buildDaydreamTtfProvider());
             providers.add(buildAttemptCounterProviders());
         }
         // -1px advance char used to cancel the +1 bitmap glyph advance (see OFFSET_CHAR),
@@ -538,6 +549,29 @@ public final class FontImageService implements Listener {
     }
 
     /**
+     * Daydream (the attempt counter's font) bundled as a TrueType provider. The
+     * client renders it with FreeType at size 10 (oversampled, smooth), so the
+     * badge text is a real readable font instead of pixel art. The badge emits
+     * private-use chars (\uE130-\uE139 digits, \uE13A colon, \uE141 A, \uE174 T,
+     * \uE165 E, \uE16D M, \uE170 P) which are mapped in the font's cmap; every
+     * other glyph in the font is skipped (all ASCII + the ZWNJ) so vanilla game
+     * text keeps the default font.
+     */
+    private String buildDaydreamTtfProvider() {
+        StringBuilder skip = new StringBuilder();
+        for (int cp = 0x20; cp <= 0x7E; cp++) skip.append((char) cp);
+        skip.append('\u200C');
+        return "    {\n"
+                + "      \"type\": \"ttf\",\n"
+                + "      \"file\": \"sharedchain:daydream.ttf\",\n"
+                + "      \"shift\": [0.0, 3.5],\n"
+                + "      \"size\": 10.0,\n"
+                + "      \"oversample\": 8.0,\n"
+                + "      \"skip\": \"" + escapeChars(skip.toString()) + "\"\n"
+                + "    }";
+    }
+
+    /**
      * The bundled attempt-counter glyphs, taken from the plugin's original custom
      * resource pack: a 16x16 grid of 8px cells (the digits, the ATTEMPT label and
      * the pill pieces) mapped to \uE100-\uE1FF, plus the pill glyph \uE001. The boss
@@ -548,7 +582,7 @@ public final class FontImageService implements Listener {
         return "    {\n"
                 + "      \"type\": \"bitmap\",\n"
                 + "      \"file\": \"sharedchain:font/bossbar/ascii.png\",\n"
-                + "      \"ascent\": 2,\n"
+                + "      \"ascent\": 4,\n"
                 + "      \"height\": 8,\n"
                 + "      \"chars\": [\n        " + buildAsciiChars() + "\n      ]\n"
                 + "    },\n"
@@ -556,7 +590,7 @@ public final class FontImageService implements Listener {
                 + "      \"type\": \"bitmap\",\n"
                 + "      \"file\": \"sharedchain:font/bossbar/test2.png\",\n"
                 + "      \"ascent\": 7,\n"
-                + "      \"height\": 16,\n"
+                + "      \"height\": 18,\n"
                 + "      \"chars\": [\"\\uE001\"]\n"
                 + "    }";
     }
@@ -580,7 +614,8 @@ public final class FontImageService implements Listener {
         if (!attemptCounterEnabled()) return "";
         return ", \"\\uF801\": -1, \"\\uF802\": -2, \"\\uF803\": -3, \"\\uF804\": -4,\n"
                 + "        \"\\uF805\": -5, \"\\uF806\": -6, \"\\uF807\": -7, \"\\uF808\": -63,\n"
-                + "        \"\\uF821\": 1, \"\\uF822\": 2, \"\\uF823\": 3, \"\\uF824\": 4,\n"
+                + "        \"\\uF809\": -108.6875, \"\\uF80C\": -103.53125,\n"
+                + "        \"\\uF821\": 1, \"\\uF822\": 2, \"\\uF823\": 3, \"\\uF824\": 4, \"\\uF825\": 5, \"\\uF820\": 8,\n"
                 + "        \"\\uF80A\": -512, \"\\uF80B\": -1024";
     }
 
