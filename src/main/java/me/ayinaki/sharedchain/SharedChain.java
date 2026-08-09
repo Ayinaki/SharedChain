@@ -2,6 +2,7 @@ package me.ayinaki.sharedchain;
 
 import me.ayinaki.sharedchain.chain.ChainService;
 import me.ayinaki.sharedchain.command.SharedChainCommand;
+import me.ayinaki.sharedchain.font.FontImageService;
 import me.ayinaki.sharedchain.death.DeathInfo;
 import me.ayinaki.sharedchain.death.DeathTrackerService;
 import me.ayinaki.sharedchain.listener.RedirectionListener;
@@ -63,6 +64,7 @@ public final class SharedChain extends JavaPlugin {
     private LobbyService lobbyService;
     private ComponentUtil componentUtil;
     private ChainService chainService;
+    private FontImageService fontImageService;
     private File statsFile;
     private YamlConfiguration statsConfig;
 
@@ -82,12 +84,19 @@ public final class SharedChain extends JavaPlugin {
         resetService = new WorldResetService(this);
         runStatsService = new RunStatsService();
         chainService = new ChainService(this);
+        fontImageService = new FontImageService(this);
+        ComponentUtil.setFontImages(fontImageService);
 
         // Validate and create worlds
         validateWorlds();
 
         runManager.restoreAfterEnable();
+        resumeActiveState();
         uiService.refreshAttemptBossBar();
+
+        // Keep the display loop running in every state (lobby included) so the tab
+        // list header/footer and team colors stay fresh even before a run starts.
+        timerService.start();
 
         // Register listeners
         Bukkit.getPluginManager().registerEvents(new RunListener(this), this);
@@ -95,6 +104,15 @@ public final class SharedChain extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new DeathListener(this), this);
         Bukkit.getPluginManager().registerEvents(new RedirectionListener(this), this);
         Bukkit.getPluginManager().registerEvents(finishDetector, this);
+        Bukkit.getPluginManager().registerEvents(fontImageService, this);
+        Bukkit.getPluginManager().registerEvents(chainService, this);
+
+        // Generate the font-image resource pack and start the pack server.
+        fontImageService.load();
+
+        // The below-name death counter needs the deaths icon, which only exists
+        // after the font images have been scanned.
+        uiService.refreshDeathDisplayName();
 
         // Register command
         SharedChainCommand command = new SharedChainCommand(this);
@@ -112,8 +130,64 @@ public final class SharedChain extends JavaPlugin {
         if (chainService != null) chainService.deactivate();
         if (uiService != null) uiService.shutdown();
         if (lobbyService != null) lobbyService.shutdown();
+        if (fontImageService != null) fontImageService.shutdown();
         saveStatsSync();
         getComponentLogger().info("SharedChain disabled!");
+    }
+
+    /**
+     * Restores the active gameplay state after a server restart. Everything below is
+     * in-memory only and dies with the process: chain order/anchors, the lobby setup
+     * (border, time freeze, [Start] button) and the countdown task.
+     */
+    private void resumeActiveState() {
+        RunState state = runManager.getState();
+        World challenge = getFakeOverworld();
+
+        // Leftover anchor entities from an unclean shutdown would otherwise linger
+        // invisible in the world and pile up across restarts.
+        chainService.purgeStaleAnchors();
+
+        switch (state) {
+            case IDLE, STARTING -> {
+                // Re-run the lobby setup so the border, time freeze, and [Start] button return.
+                lobbyService.setupLobby(challenge);
+                // A crash/force-kill can leave stale player data on disk (pre-reset items or
+                // gamemode). The lobby invariant is a clean slate, so reset everyone back to
+                // it now that we're resuming into the lobby.
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (runManager.isWorldEnabled(player.getWorld())) {
+                        runManager.resetPlayer(player);
+                    }
+                }
+            }
+            case RUNNING -> {
+                // Timer already restored; re-apply challenge rules and let chains reform
+                // as players reconnect (RunListener chains them on join).
+                runManager.applyRunRules();
+                // The world border is persisted with the world. If the server restarted
+                // shortly after the run started (before the next autosave), the on-disk
+                // border can still be the small lobby size - which would trap the team
+                // in an invisible lobby zone mid-run. Restore the active size and make
+                // sure the day/night cycle is running, mirroring finishCountdown.
+                if (challenge != null) {
+                    challenge.getWorldBorder().setSize(
+                            getConfig().getDouble("lobby.active-border-size", 100000.0));
+                    challenge.setGameRule(GameRules.ADVANCE_TIME, true);
+                }
+                chainService.activateFor(Bukkit.getOnlinePlayers());
+            }
+            case RESETTING -> {
+                // An interrupted reset: the world is whatever it is, so return to a usable
+                // lobby instead of leaving players stuck in limbo forever.
+                runManager.setState(RunState.IDLE);
+                lobbyService.setupLobby(challenge);
+            }
+            default -> {
+                // WIPED / FINISHED: join handler keeps players in spectator; an operator
+                // still needs to reset to start the next run.
+            }
+        }
     }
 
     public RunManager getRunManager() {
@@ -158,6 +232,10 @@ public final class SharedChain extends JavaPlugin {
 
     public ChainService getChainService() {
         return chainService;
+    }
+
+    public FontImageService getFontImageService() {
+        return fontImageService;
     }
 
     public YamlConfiguration getStatsConfig() {

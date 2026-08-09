@@ -22,10 +22,15 @@ public class RunManager {
     private long totalElapsedTime;
     private int currentResetId = 0;
     private int runCounter = 0;
+    private volatile boolean healthDirty = false;
+    private long pausedElapsed = 0;
+    private boolean paused = false;
+    private long finalElapsed = 0;
 
     public RunManager(SharedChain plugin) {
         this.plugin = plugin;
-        this.sharedState = new SharedState(plugin.getConfig().getDouble("shared-health.max-health", 20.0));
+        double maxHealth = plugin.getConfig().getDouble("shared-health.max-health", 20.0);
+        this.sharedState = new SharedState(maxHealth);
         this.runCounter = plugin.getStatsConfig().getInt("run-counter", 0);
         this.totalElapsedTime = plugin.getStatsConfig().getLong("total-elapsed-time", 0L);
         this.startTime = plugin.getStatsConfig().getLong("run-state.start-time", 0L);
@@ -37,6 +42,26 @@ public class RunManager {
             this.state = RunState.valueOf(storedState);
         } catch (IllegalArgumentException ignored) {
             this.state = RunState.IDLE;
+        }
+
+        // Restore in-memory run state so a restart mid-run resumes cleanly:
+        // shared health pool, participant list, and timer pause state.
+        this.finalElapsed = plugin.getStatsConfig().getLong("run-state.final-elapsed", 0L);
+        if (this.state == RunState.RUNNING) {
+            for (String uuidStr : plugin.getStatsConfig().getStringList("run-state.participants")) {
+                try {
+                    participants.add(UUID.fromString(uuidStr));
+                } catch (IllegalArgumentException ignored) {
+                    // Skip malformed entries
+                }
+            }
+            paused = plugin.getStatsConfig().getBoolean("run-state.paused", false);
+            pausedElapsed = plugin.getStatsConfig().getLong("run-state.paused-elapsed", 0L);
+
+            double savedHealth = plugin.getStatsConfig().getDouble("run-state.health", -1.0);
+            if (savedHealth >= 0) {
+                sharedState.setHealth(savedHealth);
+            }
         }
     }
 
@@ -57,18 +82,18 @@ public class RunManager {
         endTime = 0;
 
         plugin.getFinishDetector().reset();
-        applyImmediateRespawnRule();
-        applyHardcoreRule();
-        applyNaturalRegenerationRule(false);
+        applyRunRules();
         plugin.getHealthService().syncHealth();
         plugin.getHealthService().clearDamageFrames();
         plugin.getTimerService().start();
+        updateTimerPause();
         persistRunState();
     }
 
     public void stop() {
         if (state == RunState.RUNNING) {
             totalElapsedTime += getElapsedTime();
+            finalElapsed = getElapsedTime();
         }
         state = RunState.IDLE;
         endTime = System.currentTimeMillis();
@@ -90,6 +115,7 @@ public class RunManager {
     public void finish() {
         if (state != RunState.RUNNING) return;
         totalElapsedTime += getElapsedTime();
+        finalElapsed = getElapsedTime();
         state = RunState.FINISHED;
         endTime = System.currentTimeMillis();
         persistRunState();
@@ -98,6 +124,7 @@ public class RunManager {
     public void wipe(DeathInfo deathInfo) {
         if (state != RunState.RUNNING) return;
         totalElapsedTime += getElapsedTime();
+        finalElapsed = getElapsedTime();
         state = RunState.WIPED;
         lastDeathInfo = deathInfo;
         endTime = System.currentTimeMillis();
@@ -128,10 +155,12 @@ public class RunManager {
 
     public void addParticipant(Player player) {
         participants.add(player.getUniqueId());
+        persistRunState();
     }
 
     public void removeParticipant(Player player) {
         participants.remove(player.getUniqueId());
+        persistRunState();
     }
 
     public boolean isWorldEnabled(World world) {
@@ -203,11 +232,10 @@ public class RunManager {
 
     public long getElapsedTime() {
         if (state == RunState.RUNNING) {
-            return System.currentTimeMillis() - startTime;
-        } else if (startTime > 0 && endTime > 0) {
-            return endTime - startTime;
+            if (paused) return pausedElapsed;
+            return pausedElapsed + (System.currentTimeMillis() - startTime);
         }
-        return 0;
+        return finalElapsed;
     }
 
     public int getRunCounter() {
@@ -229,23 +257,108 @@ public class RunManager {
 
     public void restoreAfterEnable() {
         if (state == RunState.RUNNING && startTime > 0 && endTime > startTime) {
-            long elapsed = endTime - startTime;
+            // Clean shutdown: rebase the timer on the pause-aware elapsed time.
+            long elapsed = paused ? pausedElapsed : pausedElapsed + (endTime - startTime);
             startTime = System.currentTimeMillis() - elapsed;
             endTime = 0;
             persistRunState();
+        } else if (state == RunState.RUNNING && startTime > 0 && !paused) {
+            // Hard kill: exclude the downtime from the run timer using the last-active heartbeat.
+            long lastActive = plugin.getStatsConfig().getLong("run-state.last-active", 0L);
+            if (lastActive > 0) {
+                long downtime = System.currentTimeMillis() - lastActive;
+                if (downtime > 0) {
+                    startTime += downtime;
+                    persistRunState();
+                }
+            }
         }
         if (state == RunState.RUNNING || state == RunState.WIPED) {
             plugin.getTimerService().start();
         }
+        updateTimerPause();
     }
 
-    private void persistRunState() {
+    /**
+     * Pauses the run timer while no participants are online and resumes it when a
+     * participant returns, so the clock only counts time the team was actually present.
+     */
+    public void updateTimerPause() {
+        if (state != RunState.RUNNING) return;
+
+        boolean anyOnline = false;
+        for (UUID uuid : participants) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline()) {
+                anyOnline = true;
+                break;
+            }
+        }
+
+        if (!plugin.getConfig().getBoolean("timer.pause-when-empty", true)) {
+            if (paused) {
+                paused = false;
+                startTime = System.currentTimeMillis();
+                persistRunState();
+            }
+            return;
+        }
+
+        if (anyOnline) {
+            if (paused) {
+                paused = false;
+                startTime = System.currentTimeMillis();
+                persistRunState();
+            }
+        } else if (!paused) {
+            pausedElapsed += System.currentTimeMillis() - startTime;
+            paused = true;
+            persistRunState();
+        }
+    }
+
+    public void persistRunState() {
         plugin.getStatsConfig().set("run-state.state", state.name());
         plugin.getStatsConfig().set("run-state.start-time", startTime);
         plugin.getStatsConfig().set("run-state.end-time", endTime);
         plugin.getStatsConfig().set("run-state.current-reset-id", currentResetId);
+        plugin.getStatsConfig().set("run-state.health", sharedState.getHealth());
+        plugin.getStatsConfig().set("run-state.max-health", sharedState.getMaxHealth());
+        plugin.getStatsConfig().set("run-state.participants", participants.stream().map(UUID::toString).toList());
+        plugin.getStatsConfig().set("run-state.paused", paused);
+        plugin.getStatsConfig().set("run-state.paused-elapsed", pausedElapsed);
+        plugin.getStatsConfig().set("run-state.final-elapsed", finalElapsed);
+        plugin.getStatsConfig().set("run-state.last-active", System.currentTimeMillis());
         plugin.getStatsConfig().set("total-elapsed-time", totalElapsedTime);
         plugin.saveStats();
+    }
+
+    /**
+     * Marks the shared health pool as changed so it gets flushed to stats.yml.
+     * Called by SharedHealthService whenever damage or regen moves the pool.
+     */
+    public void markHealthDirty() {
+        healthDirty = true;
+    }
+
+    /**
+     * Returns whether the pool changed since the last flush, clearing the flag.
+     */
+    public boolean consumeHealthDirty() {
+        boolean wasDirty = healthDirty;
+        healthDirty = false;
+        return wasDirty;
+    }
+
+    /**
+     * Re-applies the challenge world rules. Used when a run starts and again when a
+     * run is resumed after a server restart (gamerules otherwise persist on disk,
+     * but re-applying is cheap and covers freshly created nether/end worlds).
+     */
+    public void applyRunRules() {
+        applyImmediateRespawnRule();
+        applyHardcoreRule();
+        applyNaturalRegenerationRule(false);
     }
 
     private void applyImmediateRespawnRule() {

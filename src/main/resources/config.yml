@@ -23,18 +23,30 @@ shared-health:
 timer:
   # Timer display mode: ACTION_BAR (Current recommendation)
   display-mode: ACTION_BAR
+  # Whether the run timer pauses while no participants are online.
+  pause-when-empty: true
 
 display:
   # Whether to use Adventure for tab header/footer.
   tab-enabled: true
   # Whether to use Scoreboard for team visuals (Required for Sponsor Icon).
   scoreboard-enabled: true
-  # Custom tab header text.
-  tab-header: "<gold><b>SharedChain</b></gold>"
+  # Logo image (a font-images name, e.g. title) shown centered at the top of
+  # the tab list. Leave empty to show only the tab-header text.
+  tab-logo: title
+  # Empty lines above the logo: the client anchors the header to the top of the
+  # screen and tall images draw upward, so they clip. -1 (default) computes the
+  # padding automatically from the logo's height; set a number to override.
+  tab-logo-padding: -1
+  # Optional subtitle shown under the logo. Leave empty to show just the logo.
+  tab-header: ""
 
 death-tracking:
-  # Whether to track and show death counts in the tab list.
+  # Whether to track and show death counts under each player's name.
   show-death-counts: true
+  # Font image used as the icon next to the counter (death-icon.png -> "death-icon").
+  # Drop the PNG into plugins/SharedChain/font-images/ and run /sharedchain fonts reload.
+  death-icon: deaths
   # Whether to show a dramatic sound effect on wipe.
   dramatic-wipe: true
   # The sound to play on wipe.
@@ -97,6 +109,43 @@ messages:
   run-finished: "<gold><b>Congratulations!</b> The challenge has been completed in <white><timer></white>!</gold>"
   run-wiped: "<red><b>WIPE!</b> <player> died due to <cause>. Total deaths: <deaths>.</red>"
   no-permission: "<red>You don't have permission to do that.</red>"
+
+font-images:
+  # Render images in chat and plugin messages with %imagename% placeholders.
+  # Drop PNGs (width and height must be multiples of 8, max 256x256) into:
+  #   plugins/SharedChain/font-images/
+  # Optional per-image overrides go in plugins/SharedChain/font-images.yml:
+  #   mylogo:
+  #     ascent: 10        # distance from the text baseline up to the image top
+  #     width: 128        # resize before slicing (multiples of 8, max 256)
+  #     height: 48        # omit one to keep the aspect ratio
+  #     render-height: 64 # render a high-res source at a smaller on-screen size;
+  #                       # the client downsamples it so it stays smooth (great for
+  #                       # keeping a big logo image compact in the tab list)
+  enabled: true
+  # Bundled attempt counter: the boss bar already shows the run number using
+  # custom glyphs (digits + "ATTEMPT" label + pill background). These used to
+  # come from a separate custom resource pack; they are now generated into this
+  # pack so everyone sees them.
+  attempt-counter:
+    enabled: true
+    # Hides the yellow boss bar fill, leaving only the attempt-counter text.
+    hide-bar: true
+  # First private-use-area character used for the glyphs. Glyphs are merged into
+  # the default font (vanilla providers preserved) because chat always renders with
+  # the default font. If other resource packs also redefine the default font, this
+  # server pack takes precedence.
+  base-char: "\uF000"
+  # Default glyph ascent (distance from the baseline up to the image top). Defaults
+  # to the image height when unset. Can be overridden per image in font-images.yml.
+  # ascent: 8
+  pack-server:
+    # Built-in HTTP server that serves the generated resource pack to clients.
+    enabled: true
+    port: 8123
+    # Override the URL clients use to download the pack. Defaults to
+    # http://localhost:<port>/pack.zip - change this if clients connect over LAN.
+    url: ""
 
 debug:
   # Whether to enable debug logging in console.

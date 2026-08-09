@@ -26,11 +26,9 @@ public class SpeedrunTimerService {
     }
 
     private void tick() {
-        RunState state = plugin.getRunManager().getState();
-        // Allow ticking even when FINISHED to keep the action bar alive
-        if (state != RunState.RUNNING && state != RunState.WIPED && state != RunState.FINISHED) return;
-        
-        // Update displays
+        // Update displays in every state so the tab list (header/footer/team colors)
+        // stays live in the lobby too. Action-bar and timer updates are internally
+        // guarded to active run states.
         plugin.getUIService().updateAll();
     }
 

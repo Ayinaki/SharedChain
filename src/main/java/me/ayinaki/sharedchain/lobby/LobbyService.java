@@ -29,21 +29,21 @@ public class LobbyService {
     }
 
     public void setupLobby(World world) {
-        double lobbySize = plugin.getConfig().getDouble("lobby.lobby-border-size", 10.0);
         Location spawn = world.getSpawnLocation();
-        
-        world.getWorldBorder().setCenter(spawn);
-        world.getWorldBorder().setSize(lobbySize);
+
+        enforceLobbyState(world);
         world.setGameRule(org.bukkit.GameRules.NATURAL_HEALTH_REGENERATION, true);
 
-        // Reset time and start the manual lock since gamerules are unavailable
-        world.setTime(0);
+        // Freeze the world clock in the lobby: reset the day counter to day 0 and
+        // disable daylight progression so the day count stays put while waiting.
+        world.setFullTime(0);
+        world.setGameRule(org.bukkit.GameRules.ADVANCE_TIME, false);
         startTimeLock(world);
 
         Component startButton = Component.text("[Start]")
                 .color(NamedTextColor.GREEN)
                 .decoration(TextDecoration.BOLD, true)
-                .clickEvent(ClickEvent.runCommand("/sharedchain startconfirm"));
+                .clickEvent(ClickEvent.runCommand("/sharedchain start"));
 
         Component message = Component.text("World ready: ")
                 .color(NamedTextColor.YELLOW)
@@ -68,14 +68,36 @@ public class LobbyService {
         plugin.getUIService().updateAll();
     }
 
+    /**
+     * Applies the lobby world-border (small box centered on spawn with warning zone)
+     * and freezes the world clock. Idempotent - safe to call on every lobby join so a
+     * client that missed the border update on the way in gets it re-broadcast.
+     */
+    public void enforceLobbyState(World world) {
+        double lobbySize = plugin.getConfig().getDouble("lobby.lobby-border-size", 10.0);
+        Location spawn = world.getSpawnLocation();
+
+        world.getWorldBorder().setCenter(spawn);
+        world.getWorldBorder().setSize(lobbySize);
+        world.getWorldBorder().setWarningDistance(5);
+        world.getWorldBorder().setWarningTime(15);
+        world.setFullTime(0);
+        world.setGameRule(org.bukkit.GameRules.ADVANCE_TIME, false);
+    }
+
     private void startTimeLock(World world) {
         stopTimeLock();
-        // Lock time to 0 every 10 ticks while in lobby/starting phase
+        // Lock the full time to 0 every 10 ticks while in lobby/starting phase.
+        // Must use setFullTime: World#setTime only shifts the time of day FORWARD to the
+        // target, so calling setTime(0) from any other time of day rolls the day counter
+        // ahead by one day on every call instead of freezing it.
         timeLockTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             RunState state = plugin.getRunManager().getState();
             if (state == RunState.IDLE || state == RunState.STARTING || state == RunState.RESETTING) {
-                world.setTime(0);
+                world.setFullTime(0);
             } else {
+                // Run started (or ended) without going through the countdown - resume daylight.
+                world.setGameRule(org.bukkit.GameRules.ADVANCE_TIME, true);
                 stopTimeLock();
             }
         }, 0L, 10L);
@@ -136,11 +158,12 @@ public class LobbyService {
             player.playSound(startSound);
         }
 
-        // Expand border
+        // Expand border and resume the day/night cycle now that the run is starting.
         double activeSize = plugin.getConfig().getDouble("lobby.active-border-size", 100000.0);
         World world = plugin.getFakeOverworld();
         if (world != null) {
-            world.getWorldBorder().setSize(activeSize); 
+            world.getWorldBorder().setSize(activeSize);
+            world.setGameRule(org.bukkit.GameRules.ADVANCE_TIME, true);
         }
 
         plugin.getRunManager().start();
