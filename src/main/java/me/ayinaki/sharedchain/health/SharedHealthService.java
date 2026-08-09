@@ -18,6 +18,8 @@ public class SharedHealthService {
     private boolean syncing = false;
     private BukkitTask heartbeatTask;
     private long slowRegenTickCounter = 0;
+    private int healthSaveTickCounter = 0;
+    private int lastActiveTickCounter = 0;
     private java.util.UUID lastSponsorUuid;
     private int sponsorLingerTicks = 0;
 
@@ -42,6 +44,24 @@ public class SharedHealthService {
             plugin.getUIService().clearSponsor();
             sponsorLingerTicks = 0;
             return;
+        }
+
+        // Periodically flush the shared health pool to stats.yml so a crash or hard
+        // kill mid-run doesn't reset the team to full health on the next boot.
+        healthSaveTickCounter += 10;
+        if (healthSaveTickCounter >= 50) { // every 2.5 seconds
+            healthSaveTickCounter = 0;
+            if (plugin.getRunManager().consumeHealthDirty()) {
+                plugin.getRunManager().persistRunState();
+            }
+        }
+
+        // Periodically stamp last-active so a hard kill mid-run doesn't inflate the
+        // run timer with server downtime on the next boot.
+        lastActiveTickCounter += 10;
+        if (lastActiveTickCounter >= 100) { // every 5 seconds
+            lastActiveTickCounter = 0;
+            plugin.getRunManager().persistRunState();
         }
 
         SharedState state = plugin.getRunManager().getSharedState();
@@ -122,6 +142,7 @@ public class SharedHealthService {
 
         SharedState state = plugin.getRunManager().getSharedState();
         state.addHealth(amount);
+        plugin.getRunManager().markHealthDirty();
         syncHealth();
     }
 
@@ -155,6 +176,64 @@ public class SharedHealthService {
         }
     }
 
+    /**
+     * Applies a damage delta to the shared pool immediately and schedules nothing.
+     * The caller is responsible for triggering {@link #syncHealth()} (usually on the
+     * next tick). Returns the amount actually removed from the pool (clamped at 0).
+     * <p>
+     * Pool updates are <em>deltas</em>, not snapshots: when two participants take
+     * damage (or heal) in the same tick, each event subtracts its own loss from the
+     * pool, so the team can never silently regain (or lose) health that a snapshot-
+     * from-a-single-player model would have dropped.
+     */
+    public synchronized double applyDamageToPool(double amount) {
+        if (amount <= 0) return 0.0;
+        if (plugin.getRunManager().getState() != RunState.RUNNING) return 0.0;
+
+        SharedState state = plugin.getRunManager().getSharedState();
+        double previous = state.getHealth();
+        state.addHealth(-amount);
+        plugin.getRunManager().markHealthDirty();
+        return previous - state.getHealth();
+    }
+
+    /**
+     * Applies a healing delta to the shared pool immediately (clamped at max
+     * health). Returns the amount actually added to the pool.
+     */
+    public synchronized double applyHealToPool(double amount) {
+        if (amount <= 0) return 0.0;
+        if (plugin.getRunManager().getState() != RunState.RUNNING) return 0.0;
+
+        SharedState state = plugin.getRunManager().getSharedState();
+        double previous = state.getHealth();
+        state.addHealth(amount);
+        plugin.getRunManager().markHealthDirty();
+        return state.getHealth() - previous;
+    }
+
+    /**
+     * The amount of health a hit will actually remove, given the victim's health
+     * and absorption <em>before</em> the damage is applied. Armor/enchantments are
+     * already factored into {@code finalDamage}; absorption is consumed first and
+     * overkill beyond the victim's remaining health is capped.
+     */
+    public static double computeHealthLoss(double healthBefore, double absorption, double finalDamage) {
+        if (finalDamage <= 0) return 0.0;
+        double absorbed = Math.min(absorption, finalDamage);
+        return Math.max(0.0, Math.min(healthBefore, finalDamage - absorbed));
+    }
+
+    /**
+     * The amount of health a heal will actually add, given the healer's health
+     * <em>before</em> the heal is applied and the team's max health. Heals that
+     * would overflow past max health only count the part that fits.
+     */
+    public static double computeHealthGain(double healthBefore, double maxHealth, double healAmount) {
+        if (healAmount <= 0) return 0.0;
+        return Math.max(0.0, Math.min(healAmount, maxHealth - healthBefore));
+    }
+
     public synchronized double syncFromPlayerHealth(Player source) {
         if (source == null || !source.isOnline()) return 0.0;
         if (plugin.getRunManager().getState() != RunState.RUNNING) return 0.0;
@@ -167,6 +246,7 @@ public class SharedHealthService {
         SharedState state = plugin.getRunManager().getSharedState();
         double previous = state.getHealth();
         state.setHealth(sourceHealth);
+        plugin.getRunManager().markHealthDirty();
         syncHealth();
         return Math.max(0.0, previous - state.getHealth());
     }

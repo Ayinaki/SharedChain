@@ -3,6 +3,7 @@
 build/
 /run/
 out/
+.gradletasknamecache
 
 # Freebuff workspace data (local tooling, not project files)
 .freebuff/
@@ -10,10 +11,36 @@ desktop-v2.db
 desktop-v2.db-shm
 desktop-v2.db-wal
 
-# IDE
+# IntelliJ IDEA
 .idea/
 *.iml
+*.ipr
+*.iws
+captures/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+.factorypath
+
+# VS Code
 .vscode/
+
+# Java compiled output
+*.class
+
+# JVM crash / profiling artifacts
+hs_err_pid*
+*.hprof
+
+# Local server keys/secrets (never commit)
+*.jks
+*.keystore
+
+# Maven/shade leftovers (not used, but harmless to ignore)
+dependency-reduced-pom.xml
 
 # OS / logs
 *.log

@@ -4,10 +4,14 @@ import me.ayinaki.sharedchain.SharedChain;
 import me.ayinaki.sharedchain.run.RunState;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Bat;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
@@ -22,7 +26,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class ChainService {
+public class ChainService implements Listener {
     public static final String CHAIN_ANCHOR_TAG = "sharedchain_chain_anchor";
 
     private final SharedChain plugin;
@@ -72,6 +76,71 @@ public class ChainService {
         UUID centerUuid = chainOrder.get(middleIndex);
         Player player = Bukkit.getPlayer(centerUuid);
         return player != null ? player.getName() : "Unknown";
+    }
+
+    /**
+     * Adds a player to the chain. Used when a player joins during the lobby or a run
+     * (e.g. after a server restart), where the in-memory chain order was lost.
+     * The per-tick pass handles anchor creation and physics once enough players are present.
+     */
+    public void addPlayer(Player player) {
+        if (!plugin.getConfig().getBoolean("chain.enabled", true)) return;
+        if (!plugin.getRunManager().isWorldEnabled(player.getWorld())) return;
+        if (chainOrder.contains(player.getUniqueId())) return;
+
+        chainOrder.add(player.getUniqueId());
+        if (chainOrder.size() >= 2 && !active) {
+            active = true;
+            tickCounter = 0;
+            ensureTask();
+        }
+        plugin.getComponentLogger().info("Added " + player.getName() + " to the chain (order: " + chainOrder + ")");
+    }
+
+    /**
+     * Removes leftover anchor entities saved by an unclean shutdown (crash/hard kill).
+     * On a clean stop the anchors are removed by {@link #deactivate()}, so this only
+     * cleans up after interrupted sessions where the plugin's onDisable never ran.
+     * <p>
+     * Only entities in <em>loaded</em> chunks can be seen here; stale anchors that
+     * were saved in unloaded chunks (e.g. the team was far from spawn when the
+     * server died) are caught by {@link #onChunkLoad} the moment their chunk loads.
+     */
+    public void purgeStaleAnchors() {
+        int removed = 0;
+        for (World world : Bukkit.getWorlds()) {
+            if (!plugin.getRunManager().isWorldEnabled(world)) continue;
+            for (Entity entity : world.getEntities()) {
+                if (entity.getScoreboardTags().contains(CHAIN_ANCHOR_TAG)) {
+                    entity.remove();
+                    removed++;
+                }
+            }
+        }
+        if (removed > 0) {
+            plugin.getComponentLogger().info("Purged " + removed + " stale chain anchor(s) from a previous session.");
+        }
+    }
+
+    /**
+     * Sweeps every chunk as it loads and removes any chain anchor that does not
+     * belong to the live chain. This is what actually cleans up anchors saved in
+     * unloaded chunks by an unclean shutdown: they are deleted the instant their
+     * chunk loads (before the player sees them), instead of lingering forever.
+     */
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        if (!plugin.getRunManager().isWorldEnabled(event.getWorld())) return;
+        for (Entity entity : event.getChunk().getEntities()) {
+            if (!entity.getScoreboardTags().contains(CHAIN_ANCHOR_TAG)) continue;
+            // Anchors the live chain is actively tracking are legitimate; anything
+            // else tagged as an anchor is a leftover from a previous session.
+            if (anchorsByPlayer.containsValue(entity)) continue;
+            Location loc = entity.getLocation();
+            entity.remove();
+            plugin.getComponentLogger().info("Removed stale chain anchor at "
+                    + loc.getWorld().getName() + " " + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ());
+        }
     }
 
     public void deactivate() {
