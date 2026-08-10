@@ -45,9 +45,10 @@ display:
 death-tracking:
   # Whether to track and show death counts under each player's name.
   show-death-counts: true
-  # Font image used as the icon next to the counter (death-icon.png -> "death-icon").
+  # Font image used as the icon next to the counter (skull.png -> "skull").
   # Drop the PNG into plugins/SharedChain/font-images/ and run /sharedchain fonts reload.
-  death-icon: deaths
+  # Scale is controlled per image in font-images.yml (skull: { render-height: 8 }).
+  death-icon: skull
   # Whether to show a dramatic sound effect on wipe.
   dramatic-wipe: true
   # The sound to play on wipe.
@@ -145,8 +146,10 @@ font-images:
     enabled: true
     port: 8123
     # Override the URL clients use to download the pack. Defaults to
-    # http://localhost:<port>/pack.zip - change this if clients connect over LAN.
-    url: ""
+    # http://localhost:<port>/pack.zip - set this to a reachable address if clients
+    # connect over LAN or the internet. ayinaki.duckdns.org is a persistent hostname,
+    # so this keeps working even when the machine's public IP changes.
+    url: "http://ayinaki.duckdns.org:8123/pack.zip"
 
 tags:
   # Role tags shown next to a player's name in the tab list and above their head

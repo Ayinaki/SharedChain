@@ -73,6 +73,9 @@ public final class SharedChain extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        // Ship a default font-images.yml (per-image overrides like the skull
+        // icon's render-height) without clobbering an existing file.
+        saveResource("font-images.yml", false);
         loadStats();
 
         componentUtil = new ComponentUtil(this);
