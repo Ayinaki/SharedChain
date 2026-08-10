@@ -1,0 +1,9 @@
+# Per-image overrides for font images (see config.yml -> font-images for the
+# full list of options: ascent, width, height, render-height).
+#
+# render-height renders a full-resolution source image at a smaller on-screen
+# size - the client downsamples it so it stays smooth. The death counter line
+# is ~8px tall, so the 14x16 skull.png renders too big at native size without
+# this override.
+skull:
+  render-height: 8
